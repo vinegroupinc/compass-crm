@@ -3,9 +3,9 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import * as db from '../lib/db'
 import { useData } from '../context/DataContext'
 import { useAuth } from '../context/AuthContext'
-import { StatusBadge, Toast } from '../components/UI'
+import { StatusBadge, Toast, Modal } from '../components/UI'
 import { JOB_TYPES, STATUSES } from '../lib/constants'
-import { formatTimestamp, formatDate, daysSinceTimestamp } from '../lib/time'
+import { formatTimestamp, formatDate, daysSinceTimestamp, laToday } from '../lib/time'
 
 const USERS_NOTE =
   'Tasks can be assigned to any team member. Assigned open tasks appear on that person’s dashboard.'
@@ -24,10 +24,12 @@ export default function JobDetail() {
   const [newNote, setNewNote] = useState('')
   const [newTask, setNewTask] = useState('')
   const [taskAssignee, setTaskAssignee] = useState(user.id)
+  const [newTaskDue, setNewTaskDue] = useState('')
   const [editingNoteId, setEditingNoteId] = useState(null)
   const [editNoteText, setEditNoteText] = useState('')
   const [history, setHistory] = useState([])
   const [sched, setSched] = useState({ start_date: '', end_date: '' })
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -62,10 +64,10 @@ export default function JobDetail() {
         job_type: draft.job_type,
         main_tech: draft.main_tech,
         subcontractors: draft.subcontractors,
+        access_info: draft.access_info,
         crew_access: draft.crew_access,
         status: draft.status,
         needs_attention: draft.needs_attention,
-        high_priority: draft.high_priority,
       }, { statusChanged })
       setEditing(false)
       await load()
@@ -98,6 +100,14 @@ export default function JobDetail() {
     } catch (e) { flash(e?.message || 'Could not update schedule') }
   }
 
+  async function deleteJob() {
+    try {
+      await db.softDeleteJob(job.id)
+      await refresh()
+      navigate('/')
+    } catch (e) { flash(e?.message || 'Could not delete') }
+  }
+
   async function postNote() {
     if (!newNote.trim()) return
     try {
@@ -118,9 +128,16 @@ export default function JobDetail() {
     const member = team.find((m) => m.id === taskAssignee)
     const assignee = member?.full_name || user.name
     try {
-      await db.addTask(job.id, newTask, taskAssignee, assignee)
-      setNewTask(''); await load(); await refresh(); flash('Task added')
+      await db.addTask(job.id, newTask, taskAssignee, assignee, newTaskDue || null)
+      setNewTask(''); setNewTaskDue(''); await load(); await refresh(); flash('Task added')
     } catch (e) { flash(e?.message || 'Could not add task') }
+  }
+
+  async function changeTaskDue(taskId, dueDate) {
+    try {
+      await db.setTaskDue(taskId, dueDate || null)
+      await load(); await refresh()
+    } catch (e) { flash(e?.message || 'Could not update due date') }
   }
 
   async function changeAssignee(taskId, newUserId) {
@@ -150,6 +167,7 @@ export default function JobDetail() {
   )
   const tasks = [...(job.tasks || [])].sort((a, b) => Number(a.done) - Number(b.done))
   const d = draft
+  const today = laToday()
 
   return (
     <>
@@ -163,29 +181,31 @@ export default function JobDetail() {
             Status set {daysSinceTimestamp(job.status_changed_at)} day(s) ago
           </div>
         </div>
-        {!editing && <button className="btn btn-ghost" onClick={() => { setDraft(job); setEditing(true) }}>Edit</button>}
+        <div className="row row-wrap" style={{ gap: 8 }}>
+          <button
+            className={`btn btn-sm ${job.needs_attention ? 'btn-danger' : 'btn-ghost'}`}
+            onClick={() => toggleFlag('needs_attention')}
+          >
+            ⚠ {job.needs_attention ? 'Clear Attention' : 'Needs Attention'}
+          </button>
+          {!editing && (
+            <button className="btn btn-ghost btn-sm" onClick={() => { setDraft(job); setEditing(true) }}>Edit</button>
+          )}
+          <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>
+        </div>
       </div>
 
-      {/* status + flags quick row */}
+      {/* status quick row */}
       <div className="card-pad" style={{ marginBottom: 16 }}>
         <div className="badges" style={{ marginBottom: 12 }}>
           <StatusBadge status={job.status} />
           {job.needs_attention && <span className="badge chip-attention">⚠ Needs Attention</span>}
-          {job.high_priority && <span className="badge chip-priority">★ High Priority</span>}
           <span className="badge badge-soft">{job.job_type}</span>
         </div>
         <label>Quick status change</label>
         <select value={job.status} onChange={(e) => quickStatus(e.target.value)}>
           {STATUSES.map((s) => <option key={s}>{s}</option>)}
         </select>
-        <div className="row row-wrap" style={{ marginTop: 12, gap: 10 }}>
-          <button className={`btn btn-sm ${job.needs_attention ? 'btn-danger' : 'btn-ghost'}`} onClick={() => toggleFlag('needs_attention')}>
-            ⚠ {job.needs_attention ? 'Clear Attention' : 'Flag Attention'}
-          </button>
-          <button className={`btn btn-sm ${job.high_priority ? 'btn-accent' : 'btn-ghost'}`} onClick={() => toggleFlag('high_priority')}>
-            ★ {job.high_priority ? 'Unset Priority' : 'High Priority'}
-          </button>
-        </div>
       </div>
 
       {/* schedule — editable inline, no Edit mode needed */}
@@ -222,6 +242,7 @@ export default function JobDetail() {
             <span>🔧 {job.main_tech || '—'}</span>
             <span>📅 {job.start_date ? `${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}` : '—'}</span>
             <span style={{ flexBasis: '100%' }}>🧰 Subs: {job.subcontractors || '—'}</span>
+            <span style={{ flexBasis: '100%' }}>🔑 Access: {job.access_info || '—'}</span>
             <span style={{ flexBasis: '100%' }}>📝 Notes: {job.crew_access || '—'}</span>
           </div>
         ) : (
@@ -256,9 +277,12 @@ export default function JobDetail() {
               <div className="field-full"><label>Subcontractor(s)</label>
                 <input value={d.subcontractors || ''} onChange={(e) => setDraft({ ...d, subcontractors: e.target.value })}
                   placeholder="e.g. Zahava Electrical, Lubov Plumbing" /></div>
+              <div className="field-full"><label>Access Information</label>
+                <textarea value={d.access_info || ''} onChange={(e) => setDraft({ ...d, access_info: e.target.value })}
+                  placeholder="Lockbox code, gate code, parking, where to find keys…" /></div>
               <div className="field-full"><label>Notes</label>
                 <textarea value={d.crew_access || ''} onChange={(e) => setDraft({ ...d, crew_access: e.target.value })}
-                  placeholder="Access information, tenant contact information, additional notes…" /></div>
+                  placeholder="Scope, tenant contact information, additional notes…" /></div>
             </div>
             <div className="row" style={{ marginTop: 16 }}>
               <button className="btn btn-accent btn-block" onClick={saveEdits}>Save changes</button>
@@ -274,41 +298,63 @@ export default function JobDetail() {
         <div className="hint" style={{ marginBottom: 12 }}>{USERS_NOTE}</div>
         {tasks.length === 0 && <div className="hint">No tasks yet.</div>}
         {tasks.map((t) => (
-          <div key={t.id} className="task-line">
-            <button className={`task-check ${t.done ? 'done' : ''}`} onClick={() => toggleTask(t)}>
-              {t.done ? '✓' : ''}
-            </button>
-            <span className={`task-text ${t.done ? 'done' : ''}`} style={{ flex: 1 }}>
-              {t.text}
-            </span>
-            <select
-              className="task-assignee-select"
-              value={t.assigned_user_id || ''}
-              onChange={(e) => changeAssignee(t.id, e.target.value)}
-              title="Assigned to"
-            >
-              {team.length === 0 && <option value="">{t.assigned_name || 'Unassigned'}</option>}
-              {team.map((m) => (
-                <option key={m.id} value={m.id}>{m.full_name}</option>
-              ))}
-            </select>
-            <button className="btn btn-ghost btn-sm" onClick={() => removeTask(t)}>✕</button>
+          <div key={t.id} className="task-row">
+            <div className="task-line" style={{ borderTop: 'none', padding: 0 }}>
+              <button className={`task-check ${t.done ? 'done' : ''}`} onClick={() => toggleTask(t)}>
+                {t.done ? '✓' : ''}
+              </button>
+              <span className={`task-text ${t.done ? 'done' : ''}`} style={{ flex: 1 }}>
+                {t.text}
+              </span>
+              <button className="btn btn-ghost btn-sm" onClick={() => removeTask(t)}>✕</button>
+            </div>
+            <div className="task-meta-row">
+              <select
+                className="task-assignee-select"
+                value={t.assigned_user_id || ''}
+                onChange={(e) => changeAssignee(t.id, e.target.value)}
+                title="Assigned to"
+              >
+                {team.length === 0 && <option value="">{t.assigned_name || 'Unassigned'}</option>}
+                {team.map((m) => (
+                  <option key={m.id} value={m.id}>{m.full_name}</option>
+                ))}
+              </select>
+              <input
+                type="date"
+                className="task-due-input"
+                value={t.due_date || ''}
+                onChange={(e) => changeTaskDue(t.id, e.target.value)}
+                title="Show on dashboard starting"
+              />
+              {t.due_date && t.due_date > today && (
+                <span className="badge badge-soft" style={{ fontSize: 11 }}>
+                  shows {formatDate(t.due_date)}
+                </span>
+              )}
+            </div>
           </div>
         ))}
-        <div className="row row-wrap" style={{ marginTop: 12, gap: 8 }}>
-          <input style={{ flex: '1 1 55%' }} placeholder="New task…" value={newTask}
+        <div className="task-add-grid" style={{ marginTop: 14 }}>
+          <input className="task-add-text" placeholder="New task…" value={newTask}
             onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} />
-          <select style={{ flex: '1 1 30%' }} value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
+          <select value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
             {team.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.id === user.id ? `Me (${m.full_name})` : m.full_name}
               </option>
             ))}
           </select>
+          <input
+            type="date"
+            value={newTaskDue}
+            onChange={(e) => setNewTaskDue(e.target.value)}
+            title="Optional: hide from dashboard until this date"
+          />
           <button className="btn btn-primary btn-sm" onClick={addTask}>Add</button>
         </div>
         <div className="hint" style={{ marginTop: 6 }}>
-          Pick who each task is for — it’ll appear on that person’s dashboard. Use the dropdown next to a task to reassign it.
+          Optional date hides a task from dashboards until that day. Leave blank to show immediately.
         </div>
       </div>
 
@@ -378,6 +424,21 @@ export default function JobDetail() {
       </div>
 
       <Toast message={toast} />
+
+      {confirmDelete && (
+        <Modal onClose={() => setConfirmDelete(false)}>
+          <h3>Delete this job?</h3>
+          <p style={{ color: 'var(--ink-soft)', fontSize: 14, marginTop: 6 }}>
+            <strong>{job.street_address}{job.unit ? ` · Unit ${job.unit}` : ''}</strong> will be hidden
+            from the dashboard, calendar, and property history.
+            Notes and tasks stay attached, and we can recover it later if needed.
+          </p>
+          <div className="row" style={{ marginTop: 16 }}>
+            <button className="btn btn-danger btn-block" onClick={deleteJob}>Yes, delete</button>
+            <button className="btn btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+          </div>
+        </Modal>
+      )}
     </>
   )
 }

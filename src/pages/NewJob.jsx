@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../context/DataContext'
+import { useAuth } from '../context/AuthContext'
 import * as db from '../lib/db'
 import { JOB_TYPES, STATUSES } from '../lib/constants'
 import { Toast } from '../components/UI'
@@ -62,6 +63,7 @@ function SelectWithAdd({ label, hint, value, onChange, items, onAdd, placeholder
 export default function NewJob() {
   const navigate = useNavigate()
   const { mgmtList, techList, refresh } = useData()
+  const { user } = useAuth()
   const [addresses, setAddresses] = useState([])
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
@@ -76,10 +78,10 @@ export default function NewJob() {
     end_date: '',
     main_tech: '',
     subcontractors: '',
+    access_info: '',
     crew_access: '',
     status: 'New Lead',
     needs_attention: false,
-    high_priority: false,
   })
 
   useEffect(() => {
@@ -109,6 +111,16 @@ export default function NewJob() {
         start_date: form.start_date || null,
         end_date: form.end_date || null,
       })
+      // Seed the Notes & Updates log with the access info and initial notes
+      // typed at creation, so they're searchable and timestamped alongside future updates.
+      const access = (form.access_info || '').trim()
+      const notes = (form.crew_access || '').trim()
+      if (access) {
+        await db.addNote(job.id, `Access information: ${access}`, user.id, user.name)
+      }
+      if (notes) {
+        await db.addNote(job.id, notes, user.id, user.name)
+      }
       await refresh()
       navigate(`/job/${job.id}`)
     } catch (err) {
@@ -199,24 +211,23 @@ export default function NewJob() {
           </div>
 
           <div className="field-full">
-            <label>Notes</label>
-            <textarea value={form.crew_access} onChange={(e) => set('crew_access', e.target.value)}
-              placeholder="Access information, tenant contact information, additional notes…" />
+            <label>Access Information</label>
+            <textarea value={form.access_info} onChange={(e) => set('access_info', e.target.value)}
+              placeholder="Lockbox code, gate code, parking, where to find keys…" />
           </div>
 
           <div className="field-full">
-            <div className="row row-wrap" style={{ gap: 18 }}>
-              <label className="row" style={{ marginBottom: 0, gap: 8, cursor: 'pointer' }}>
-                <input type="checkbox" style={{ width: 22, height: 22, minHeight: 'auto' }}
-                  checked={form.needs_attention} onChange={(e) => set('needs_attention', e.target.checked)} />
-                ⚠ Needs Attention
-              </label>
-              <label className="row" style={{ marginBottom: 0, gap: 8, cursor: 'pointer' }}>
-                <input type="checkbox" style={{ width: 22, height: 22, minHeight: 'auto' }}
-                  checked={form.high_priority} onChange={(e) => set('high_priority', e.target.checked)} />
-                ★ High Priority
-              </label>
-            </div>
+            <label>Notes</label>
+            <textarea value={form.crew_access} onChange={(e) => set('crew_access', e.target.value)}
+              placeholder="Scope, tenant contact information, additional notes…" />
+          </div>
+
+          <div className="field-full">
+            <label className="row" style={{ marginBottom: 0, gap: 8, cursor: 'pointer' }}>
+              <input type="checkbox" style={{ width: 22, height: 22, minHeight: 'auto' }}
+                checked={form.needs_attention} onChange={(e) => set('needs_attention', e.target.checked)} />
+              ⚠ Needs Attention
+            </label>
           </div>
         </div>
 

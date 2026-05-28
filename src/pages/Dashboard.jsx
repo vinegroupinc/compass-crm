@@ -6,18 +6,20 @@ import {
   HIDDEN_FROM_DASHBOARD,
   ACTIVE_STATUS_ORDER,
 } from '../lib/constants'
-import { formatDate } from '../lib/time'
+import { formatDate, laToday } from '../lib/time'
 
 function JobCard({ job, flag, showTasksFor }) {
+  const today = laToday()
   const myOpenTasks = showTasksFor
-    ? (job.tasks || []).filter((t) => t.assigned_user_id === showTasksFor && !t.done)
+    ? (job.tasks || []).filter(
+        (t) => t.assigned_user_id === showTasksFor && !t.done && (!t.due_date || t.due_date <= today)
+      )
     : []
   return (
     <Link to={`/job/${job.id}`} className={`job-card ${flag ? 'flag-' + flag : ''}`}>
       <div className="badges" style={{ marginBottom: 8 }}>
         <StatusBadge status={job.status} />
         {job.needs_attention && <span className="badge chip-attention">⚠ Needs Attention</span>}
-        {job.high_priority && <span className="badge chip-priority">★ High Priority</span>}
         <span className="badge badge-soft">{job.job_type}</span>
       </div>
       <div className="job-title">
@@ -63,26 +65,24 @@ export default function Dashboard() {
   if (error) return <div className="empty" style={{ color: 'var(--attention)' }}>{error}</div>
 
   const active = jobs.filter((j) => !HIDDEN_FROM_DASHBOARD.includes(j.status))
+  const today = laToday()
 
-  // (a) Jobs with an open task assigned to me.
+  // A task is "due now" if it has no due date OR its due date is on/before today.
+  const isDueNow = (t) => !t.due_date || t.due_date <= today
+
+  // (a) Jobs with an open task assigned to me that is due now.
   const myJobs = active.filter((j) =>
-    (j.tasks || []).some((t) => t.assigned_user_id === user.id && !t.done)
+    (j.tasks || []).some(
+      (t) => t.assigned_user_id === user.id && !t.done && isDueNow(t)
+    )
   )
-  // Sort: jobs that are ALSO high priority float to the top of my list.
-  myJobs.sort((a, b) => Number(b.high_priority) - Number(a.high_priority))
   const myJobIds = new Set(myJobs.map((j) => j.id))
 
   // (b) Needs Attention (not already shown under my tasks).
   const attention = active.filter((j) => j.needs_attention && !myJobIds.has(j.id))
   const attentionIds = new Set(attention.map((j) => j.id))
 
-  // (c) High Priority (not already shown above).
-  const priority = active.filter(
-    (j) => j.high_priority && !myJobIds.has(j.id) && !attentionIds.has(j.id)
-  )
-  const priorityIds = new Set(priority.map((j) => j.id))
-
-  const shownTop = new Set([...myJobIds, ...attentionIds, ...priorityIds])
+  const shownTop = new Set([...myJobIds, ...attentionIds])
 
   // Remaining active jobs grouped by status (in canonical order).
   const rest = active.filter((j) => !shownTop.has(j.id))
@@ -120,16 +120,6 @@ export default function Dashboard() {
           <div className="job-grid">
             {attention.map((j) => (
               <JobCard key={j.id} job={j} flag="attention" />
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {priority.length > 0 && (
-        <Section railClass="rail-priority" title="High Priority" count={priority.length}>
-          <div className="job-grid">
-            {priority.map((j) => (
-              <JobCard key={j.id} job={j} flag="priority" />
             ))}
           </div>
         </Section>

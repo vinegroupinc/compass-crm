@@ -65,6 +65,9 @@ export default function Layout({ children }) {
           <button className="btn btn-ghost btn-sm desktop-nav" onClick={signOut} style={{ marginLeft: 8 }}>
             {user?.name} · Sign out
           </button>
+          <button className="btn btn-ghost btn-sm mobile-only signout-mobile" onClick={signOut} title="Sign out" aria-label="Sign out">
+            ⎋
+          </button>
         </div>
       </header>
 

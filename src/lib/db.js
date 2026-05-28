@@ -46,6 +46,7 @@ export async function getJobs() {
   const { data, error } = await supabase
     .from('jobs')
     .select('*, tasks(*), notes(*)')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) throw error
   return data
@@ -67,6 +68,7 @@ export async function getJobsByAddress(streetAddress) {
     .from('jobs')
     .select('*')
     .eq('street_address', streetAddress)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) throw error
   return data
@@ -77,9 +79,18 @@ export async function getKnownAddresses() {
   const { data, error } = await supabase
     .from('jobs')
     .select('street_address')
+    .is('deleted_at', null)
   if (error) throw error
   const set = new Set((data || []).map((r) => r.street_address).filter(Boolean))
   return [...set].sort()
+}
+
+export async function softDeleteJob(id) {
+  const { error } = await supabase
+    .from('jobs')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw error
 }
 
 export async function createJob(payload) {
@@ -122,7 +133,7 @@ export async function getTeamMembers() {
 
 /* ------------------------------- TASKS ---------------------------------- */
 
-export async function addTask(jobId, text, assignedUserId, assignedName) {
+export async function addTask(jobId, text, assignedUserId, assignedName, dueDate = null) {
   const { data, error } = await supabase
     .from('tasks')
     .insert({
@@ -130,8 +141,20 @@ export async function addTask(jobId, text, assignedUserId, assignedName) {
       text: text.trim(),
       assigned_user_id: assignedUserId || null,
       assigned_name: assignedName || null,
+      due_date: dueDate || null,
       done: false,
     })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function setTaskDue(id, dueDate) {
+  const { data, error } = await supabase
+    .from('tasks')
+    .update({ due_date: dueDate || null })
+    .eq('id', id)
     .select()
     .single()
   if (error) throw error

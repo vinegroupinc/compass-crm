@@ -64,8 +64,8 @@ export default function Lists() {
           <div className="hint">These feed the dropdowns on the job form.</div>
         </div>
       </div>
-      <ListManager title="Management Companies" kind="management_company" items={mgmtList} onChange={refresh} />
-      <ListManager title="Techs" kind="tech" items={techList} onChange={refresh} />
+      <ListManager title="Clients" kind="management_company" items={mgmtList} onChange={refresh} />
+      <ListManager title="Technicians" kind="tech" items={techList} onChange={refresh} />
       <Toast message={toast} />
     </>
   )
