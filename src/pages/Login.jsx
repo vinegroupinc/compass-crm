@@ -26,10 +26,7 @@ export default function Login() {
     <div className="login-wrap">
       <div className="login-card fade-up">
         <div className="login-logo">
-          <Logo variant="dark" />
-          <div style={{ textAlign: 'center' }}>
-            <div className="brand-sub">Custom Workflow for Vine Group, Inc.</div>
-          </div>
+          <Logo />
         </div>
         <form onSubmit={submit}>
           <div style={{ marginBottom: 14 }}>

@@ -1,11 +1,8 @@
 import { STATUS_COLORS } from '../lib/constants'
 
-// variant: 'dark' renders the dark-ink mark (for light backgrounds like the
-// header/login). 'white' renders the white mark (for dark backgrounds).
-// No black box anymore — the mark sits directly on whatever is behind it.
-export function Logo({ variant = 'dark', className = '', style = {} }) {
-  const src = variant === 'white' ? '/logo-white.png' : '/logo-dark.png'
-  return <img src={src} alt="Compass" className={`logo ${className}`} style={style} />
+// Single logo image (white background, black mark + wordmark), used as-is.
+export function Logo({ className = '', style = {} }) {
+  return <img src="/logo.png" alt="Compass — a Vine Group company" className={`logo ${className}`} style={style} />
 }
 
 export function StatusBadge({ status }) {

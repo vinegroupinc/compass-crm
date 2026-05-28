@@ -50,7 +50,7 @@ export default function Layout({ children }) {
       <header className="topbar">
         <div className="container topbar-inner">
           <div className="brand-link" onClick={() => navigate('/')} role="button" aria-label="Go to dashboard">
-            <Logo variant="dark" />
+            <Logo />
             <div>
               <div className="brand-sub">{laDayDateLabel()} · Los Angeles</div>
             </div>
