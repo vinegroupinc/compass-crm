@@ -13,7 +13,7 @@ const USERS_NOTE =
 export default function JobDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { mgmtList, techList, refresh } = useData()
+  const { mgmtList, techList, team, refresh } = useData()
   const { user } = useAuth()
 
   const [job, setJob] = useState(null)
@@ -115,11 +115,21 @@ export default function JobDetail() {
 
   async function addTask() {
     if (!newTask.trim()) return
-    const assignee = taskAssignee === user.id ? user.name : 'Teammate'
+    const member = team.find((m) => m.id === taskAssignee)
+    const assignee = member?.full_name || user.name
     try {
       await db.addTask(job.id, newTask, taskAssignee, assignee)
       setNewTask(''); await load(); await refresh(); flash('Task added')
     } catch (e) { flash(e?.message || 'Could not add task') }
+  }
+
+  async function changeAssignee(taskId, newUserId) {
+    const member = team.find((m) => m.id === newUserId)
+    const name = member?.full_name || 'Teammate'
+    try {
+      await db.reassignTask(taskId, newUserId, name)
+      await load(); await refresh(); flash('Task reassigned')
+    } catch (e) { flash(e?.message || 'Could not reassign') }
   }
 
   async function toggleTask(t) {
@@ -270,21 +280,35 @@ export default function JobDetail() {
             </button>
             <span className={`task-text ${t.done ? 'done' : ''}`} style={{ flex: 1 }}>
               {t.text}
-              {t.assigned_name && <span className="hint" style={{ marginLeft: 8 }}>· {t.assigned_name}</span>}
             </span>
+            <select
+              className="task-assignee-select"
+              value={t.assigned_user_id || ''}
+              onChange={(e) => changeAssignee(t.id, e.target.value)}
+              title="Assigned to"
+            >
+              {team.length === 0 && <option value="">{t.assigned_name || 'Unassigned'}</option>}
+              {team.map((m) => (
+                <option key={m.id} value={m.id}>{m.full_name}</option>
+              ))}
+            </select>
             <button className="btn btn-ghost btn-sm" onClick={() => removeTask(t)}>✕</button>
           </div>
         ))}
         <div className="row row-wrap" style={{ marginTop: 12, gap: 8 }}>
-          <input style={{ flex: '1 1 60%' }} placeholder="New task…" value={newTask}
+          <input style={{ flex: '1 1 55%' }} placeholder="New task…" value={newTask}
             onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} />
           <select style={{ flex: '1 1 30%' }} value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
-            <option value={user.id}>Me ({user.name})</option>
+            {team.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.id === user.id ? `Me (${m.full_name})` : m.full_name}
+              </option>
+            ))}
           </select>
           <button className="btn btn-primary btn-sm" onClick={addTask}>Add</button>
         </div>
         <div className="hint" style={{ marginTop: 6 }}>
-          Assigning to other teammates becomes available once roles are configured; for now tasks assign to you.
+          Pick who each task is for — it’ll appear on that person’s dashboard. Use the dropdown next to a task to reassign it.
         </div>
       </div>
 

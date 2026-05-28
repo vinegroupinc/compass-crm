@@ -109,6 +109,17 @@ export async function updateJob(id, patch, opts = {}) {
   return data
 }
 
+/* ---------------- TEAM MEMBERS (for task assignment) ------------------- */
+
+export async function getTeamMembers() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .order('full_name', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
 /* ------------------------------- TASKS ---------------------------------- */
 
 export async function addTask(jobId, text, assignedUserId, assignedName) {
@@ -131,6 +142,17 @@ export async function toggleTask(id, done) {
   const { data, error } = await supabase
     .from('tasks')
     .update({ done })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function reassignTask(id, assignedUserId, assignedName) {
+  const { data, error } = await supabase
+    .from('tasks')
+    .update({ assigned_user_id: assignedUserId, assigned_name: assignedName })
     .eq('id', id)
     .select()
     .single()
