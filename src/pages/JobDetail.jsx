@@ -1,0 +1,323 @@
+import { useEffect, useState, useCallback } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import * as db from '../lib/db'
+import { useData } from '../context/DataContext'
+import { useAuth } from '../context/AuthContext'
+import { StatusBadge, Toast } from '../components/UI'
+import { JOB_TYPES, STATUSES } from '../lib/constants'
+import { formatTimestamp, formatDate, daysSinceTimestamp } from '../lib/time'
+
+const USERS_NOTE =
+  'Tasks can be assigned to any team member. Assigned open tasks appear on that person’s dashboard.'
+
+export default function JobDetail() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const { mgmtList, techList, refresh } = useData()
+  const { user } = useAuth()
+
+  const [job, setJob] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(null)
+  const [toast, setToast] = useState('')
+  const [newNote, setNewNote] = useState('')
+  const [newTask, setNewTask] = useState('')
+  const [taskAssignee, setTaskAssignee] = useState(user.id)
+  const [editingNoteId, setEditingNoteId] = useState(null)
+  const [editNoteText, setEditNoteText] = useState('')
+  const [history, setHistory] = useState([])
+
+  const load = useCallback(async () => {
+    try {
+      const j = await db.getJob(id)
+      setJob(j)
+      setDraft(j)
+      const h = await db.getJobsByAddress(j.street_address)
+      setHistory(h.filter((x) => x.id !== j.id))
+    } catch (e) {
+      setToast(e?.message || 'Could not load job')
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => { load() }, [load])
+
+  function flash(m) { setToast(m); setTimeout(() => setToast(''), 2200) }
+
+  async function saveEdits() {
+    const statusChanged = draft.status !== job.status
+    try {
+      await db.updateJob(job.id, {
+        street_address: draft.street_address.trim(),
+        unit: draft.unit?.trim() || null,
+        management_company: draft.management_company,
+        unit_manager: draft.unit_manager,
+        job_type: draft.job_type,
+        start_date: draft.start_date || null,
+        end_date: draft.end_date || null,
+        main_tech: draft.main_tech,
+        subcontractors: draft.subcontractors,
+        crew_access: draft.crew_access,
+        status: draft.status,
+        needs_attention: draft.needs_attention,
+        high_priority: draft.high_priority,
+      }, { statusChanged })
+      setEditing(false)
+      await load()
+      await refresh()
+      flash(statusChanged ? 'Saved — followup clock reset' : 'Saved')
+    } catch (e) { flash(e?.message || 'Save failed') }
+  }
+
+  async function quickStatus(status) {
+    try {
+      await db.updateJob(job.id, { status }, { statusChanged: status !== job.status })
+      await load(); await refresh(); flash(`Status → ${status}`)
+    } catch (e) { flash(e?.message || 'Failed') }
+  }
+
+  async function toggleFlag(field) {
+    try {
+      await db.updateJob(job.id, { [field]: !job[field] })
+      await load(); await refresh()
+    } catch (e) { flash(e?.message || 'Failed') }
+  }
+
+  async function postNote() {
+    if (!newNote.trim()) return
+    try {
+      await db.addNote(job.id, newNote, user.id, user.name)
+      setNewNote(''); await load(); flash('Note added')
+    } catch (e) { flash(e?.message || 'Could not add note') }
+  }
+
+  async function saveNoteEdit(noteId) {
+    try {
+      await db.editOwnNote(noteId, editNoteText)
+      setEditingNoteId(null); await load(); flash('Note updated')
+    } catch (e) { flash(e?.message || 'Only the author can edit this note') }
+  }
+
+  async function addTask() {
+    if (!newTask.trim()) return
+    const assignee = taskAssignee === user.id ? user.name : 'Teammate'
+    try {
+      await db.addTask(job.id, newTask, taskAssignee, assignee)
+      setNewTask(''); await load(); await refresh(); flash('Task added')
+    } catch (e) { flash(e?.message || 'Could not add task') }
+  }
+
+  async function toggleTask(t) {
+    try { await db.toggleTask(t.id, !t.done); await load(); await refresh() }
+    catch (e) { flash(e?.message || 'Failed') }
+  }
+
+  async function removeTask(t) {
+    try { await db.deleteTask(t.id); await load(); await refresh() }
+    catch (e) { flash(e?.message || 'Failed') }
+  }
+
+  if (loading) return <div className="empty">Loading…</div>
+  if (!job) return <div className="empty">Job not found.</div>
+
+  const notes = [...(job.notes || [])].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  )
+  const tasks = [...(job.tasks || [])].sort((a, b) => Number(a.done) - Number(b.done))
+  const d = draft
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <Link to="/" className="hint">← Dashboard</Link>
+          <h1 style={{ marginTop: 4 }}>
+            {job.street_address}{job.unit ? <span style={{ color: 'var(--ink-faint)' }}> · Unit {job.unit}</span> : null}
+          </h1>
+          <div className="hint">
+            Status set {daysSinceTimestamp(job.status_changed_at)} day(s) ago
+          </div>
+        </div>
+        {!editing && <button className="btn btn-ghost" onClick={() => { setDraft(job); setEditing(true) }}>Edit</button>}
+      </div>
+
+      {/* status + flags quick row */}
+      <div className="card-pad" style={{ marginBottom: 16 }}>
+        <div className="badges" style={{ marginBottom: 12 }}>
+          <StatusBadge status={job.status} />
+          {job.needs_attention && <span className="badge chip-attention">⚠ Needs Attention</span>}
+          {job.high_priority && <span className="badge chip-priority">★ High Priority</span>}
+          <span className="badge badge-soft">{job.job_type}</span>
+        </div>
+        <label>Quick status change</label>
+        <select value={job.status} onChange={(e) => quickStatus(e.target.value)}>
+          {STATUSES.map((s) => <option key={s}>{s}</option>)}
+        </select>
+        <div className="row row-wrap" style={{ marginTop: 12, gap: 10 }}>
+          <button className={`btn btn-sm ${job.needs_attention ? 'btn-danger' : 'btn-ghost'}`} onClick={() => toggleFlag('needs_attention')}>
+            ⚠ {job.needs_attention ? 'Clear Attention' : 'Flag Attention'}
+          </button>
+          <button className={`btn btn-sm ${job.high_priority ? 'btn-accent' : 'btn-ghost'}`} onClick={() => toggleFlag('high_priority')}>
+            ★ {job.high_priority ? 'Unset Priority' : 'High Priority'}
+          </button>
+        </div>
+      </div>
+
+      {/* details / edit */}
+      <div className="card-pad" style={{ marginBottom: 16 }}>
+        {!editing ? (
+          <div className="job-meta" style={{ fontSize: 14, gap: '10px 24px' }}>
+            <span>🏢 {job.management_company || '—'}</span>
+            <span>👤 Mgr: {job.unit_manager || '—'}</span>
+            <span>🔧 {job.main_tech || '—'}</span>
+            <span>📅 {job.start_date ? formatDate(job.start_date) : '—'}{job.end_date ? ` – ${formatDate(job.end_date)}` : ''}</span>
+            <span style={{ flexBasis: '100%' }}>🧰 Subs: {job.subcontractors || '—'}</span>
+            <span style={{ flexBasis: '100%' }}>🔑 Access: {job.crew_access || '—'}</span>
+          </div>
+        ) : (
+          <>
+            <div className="form-grid">
+              <div className="field-full">
+                <label>Street address</label>
+                <input value={d.street_address} onChange={(e) => setDraft({ ...d, street_address: e.target.value })} />
+              </div>
+              <div><label>Unit # (optional)</label>
+                <input value={d.unit || ''} onChange={(e) => setDraft({ ...d, unit: e.target.value })} /></div>
+              <div><label>Job type</label>
+                <select value={d.job_type} onChange={(e) => setDraft({ ...d, job_type: e.target.value })}>
+                  {JOB_TYPES.map((t) => <option key={t}>{t}</option>)}
+                </select></div>
+              <div><label>Management company</label>
+                <select value={d.management_company || ''} onChange={(e) => setDraft({ ...d, management_company: e.target.value })}>
+                  <option value="">— Select —</option>
+                  {mgmtList.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                </select></div>
+              <div><label>Unit manager</label>
+                <input value={d.unit_manager || ''} onChange={(e) => setDraft({ ...d, unit_manager: e.target.value })} /></div>
+              <div><label>Main tech</label>
+                <select value={d.main_tech || ''} onChange={(e) => setDraft({ ...d, main_tech: e.target.value })}>
+                  <option value="">— Select —</option>
+                  {techList.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                </select></div>
+              <div><label>Status</label>
+                <select value={d.status} onChange={(e) => setDraft({ ...d, status: e.target.value })}>
+                  {STATUSES.map((s) => <option key={s}>{s}</option>)}
+                </select></div>
+              <div><label>Scheduled start</label>
+                <input type="date" value={d.start_date || ''} onChange={(e) => setDraft({ ...d, start_date: e.target.value })} /></div>
+              <div><label>Scheduled end</label>
+                <input type="date" value={d.end_date || ''} onChange={(e) => setDraft({ ...d, end_date: e.target.value })} /></div>
+              <div className="field-full"><label>Subcontractor(s)</label>
+                <input value={d.subcontractors || ''} onChange={(e) => setDraft({ ...d, subcontractors: e.target.value })} /></div>
+              <div className="field-full"><label>Crew access / site notes</label>
+                <textarea value={d.crew_access || ''} onChange={(e) => setDraft({ ...d, crew_access: e.target.value })} /></div>
+            </div>
+            <div className="row" style={{ marginTop: 16 }}>
+              <button className="btn btn-accent btn-block" onClick={saveEdits}>Save changes</button>
+              <button className="btn btn-ghost" onClick={() => setEditing(false)}>Cancel</button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* tasks */}
+      <div className="card-pad" style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Tasks</h2>
+        <div className="hint" style={{ marginBottom: 12 }}>{USERS_NOTE}</div>
+        {tasks.length === 0 && <div className="hint">No tasks yet.</div>}
+        {tasks.map((t) => (
+          <div key={t.id} className="task-line">
+            <button className={`task-check ${t.done ? 'done' : ''}`} onClick={() => toggleTask(t)}>
+              {t.done ? '✓' : ''}
+            </button>
+            <span className={`task-text ${t.done ? 'done' : ''}`} style={{ flex: 1 }}>
+              {t.text}
+              {t.assigned_name && <span className="hint" style={{ marginLeft: 8 }}>· {t.assigned_name}</span>}
+            </span>
+            <button className="btn btn-ghost btn-sm" onClick={() => removeTask(t)}>✕</button>
+          </div>
+        ))}
+        <div className="row row-wrap" style={{ marginTop: 12, gap: 8 }}>
+          <input style={{ flex: '1 1 60%' }} placeholder="New task…" value={newTask}
+            onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} />
+          <select style={{ flex: '1 1 30%' }} value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
+            <option value={user.id}>Me ({user.name})</option>
+          </select>
+          <button className="btn btn-primary btn-sm" onClick={addTask}>Add</button>
+        </div>
+        <div className="hint" style={{ marginTop: 6 }}>
+          Assigning to other teammates becomes available once roles are configured; for now tasks assign to you.
+        </div>
+      </div>
+
+      {/* notes — append only, author may edit own */}
+      <div className="card-pad" style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Notes & updates</h2>
+        <div className="hint" style={{ marginBottom: 12 }}>
+          Notes are permanent and timestamped. They’re never overwritten — only the author can edit their own.
+        </div>
+        <textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Add an update…" />
+        <button className="btn btn-accent btn-sm" style={{ marginTop: 8 }} onClick={postNote}>Add note</button>
+
+        <div style={{ marginTop: 16 }}>
+          {notes.length === 0 && <div className="hint">No notes yet.</div>}
+          {notes.map((n) => (
+            <div key={n.id} className="note">
+              <div className="note-head">
+                <span className="note-author">{n.author_name}</span>
+                <span className="note-time">
+                  {formatTimestamp(n.created_at)}
+                  {n.edited_at && <span className="note-edited"> · edited</span>}
+                </span>
+              </div>
+              {editingNoteId === n.id ? (
+                <>
+                  <textarea value={editNoteText} onChange={(e) => setEditNoteText(e.target.value)} />
+                  <div className="row" style={{ marginTop: 8 }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => saveNoteEdit(n.id)}>Save</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setEditingNoteId(null)}>Cancel</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="note-body">{n.body}</div>
+                  {n.author_id === user.id && (
+                    <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}
+                      onClick={() => { setEditingNoteId(n.id); setEditNoteText(n.body) }}>
+                      Edit
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* property history */}
+      <div className="card-pad">
+        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Property history</h2>
+        <div className="hint" style={{ marginBottom: 12 }}>
+          Other jobs at {job.street_address} (any unit).
+        </div>
+        {history.length === 0 && <div className="hint">No other jobs at this address.</div>}
+        {history.map((h) => (
+          <Link key={h.id} to={`/job/${h.id}`} className="list-item" style={{ textDecoration: 'none' }}>
+            <div className="name">
+              {h.unit ? `Unit ${h.unit} · ` : ''}{h.job_type}
+              <div className="hint">{h.start_date ? formatDate(h.start_date) : 'No date'}</div>
+            </div>
+            <StatusBadge status={h.status} />
+          </Link>
+        ))}
+        <Link to={`/properties?addr=${encodeURIComponent(job.street_address)}`} className="btn btn-ghost btn-sm" style={{ marginTop: 10 }}>
+          View full property timeline →
+        </Link>
+      </div>
+
+      <Toast message={toast} />
+    </>
+  )
+}
