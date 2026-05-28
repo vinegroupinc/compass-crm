@@ -98,7 +98,7 @@ export default function Dashboard() {
       <div className="page-head">
         <div>
           <h1>Dashboard</h1>
-          <div className="hint">Hi {user.name} — here's what needs you.</div>
+          <div className="hint">Hi {user.name?.split(' ')[0] || user.name} — here's what needs you.</div>
         </div>
         <Link to="/new" className="btn btn-accent desktop-nav">+ New Job</Link>
       </div>
