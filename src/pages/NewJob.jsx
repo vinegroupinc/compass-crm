@@ -5,6 +5,60 @@ import * as db from '../lib/db'
 import { JOB_TYPES, STATUSES } from '../lib/constants'
 import { Toast } from '../components/UI'
 
+// A select that includes an inline "+ Add new…" option. Picking it reveals a
+// small text box; saving adds the item to the shared list AND selects it.
+function SelectWithAdd({ label, hint, value, onChange, items, onAdd, placeholder }) {
+  const [adding, setAdding] = useState(false)
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function save() {
+    const name = text.trim()
+    if (!name) return
+    setBusy(true)
+    try {
+      await onAdd(name)     // persists to the list
+      onChange(name)        // selects the new value
+      setText('')
+      setAdding(false)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div>
+      <label>{label}</label>
+      {!adding ? (
+        <select
+          value={value}
+          onChange={(e) => {
+            if (e.target.value === '__add__') { setAdding(true); return }
+            onChange(e.target.value)
+          }}
+        >
+          <option value="">— Select —</option>
+          {items.map((it) => <option key={it.id} value={it.name}>{it.name}</option>)}
+          <option value="__add__">+ Add new…</option>
+        </select>
+      ) : (
+        <div className="row" style={{ gap: 8 }}>
+          <input
+            autoFocus
+            placeholder={placeholder}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), save())}
+          />
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={save}>Save</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setAdding(false); setText('') }}>✕</button>
+        </div>
+      )}
+      {hint && <div className="hint">{hint}</div>}
+    </div>
+  )
+}
+
 export default function NewJob() {
   const navigate = useNavigate()
   const { mgmtList, techList, refresh } = useData()
@@ -33,6 +87,15 @@ export default function NewJob() {
   }, [])
 
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })) }
+
+  async function addMgmt(name) {
+    await db.addListItem('management_company', name)
+    await refresh()
+  }
+  async function addTech(name) {
+    await db.addListItem('tech', name)
+    await refresh()
+  }
 
   async function submit(e) {
     e.preventDefault()
@@ -86,37 +149,30 @@ export default function NewJob() {
             </select>
           </div>
 
-          <div>
-            <label>Management company</label>
-            <select value={form.management_company} onChange={(e) => set('management_company', e.target.value)}>
-              <option value="">— Select —</option>
-              {mgmtList.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
-            </select>
-            <div className="hint">Manage this list under “Lists”.</div>
-          </div>
+          <SelectWithAdd
+            label="Management company"
+            hint="Pick one or add a new company on the spot."
+            value={form.management_company}
+            onChange={(v) => set('management_company', v)}
+            items={mgmtList}
+            onAdd={addMgmt}
+            placeholder="New company name"
+          />
 
           <div>
-            <label>Unit manager (free text)</label>
+            <label>Manager</label>
             <input value={form.unit_manager} onChange={(e) => set('unit_manager', e.target.value)} placeholder="Name" />
           </div>
 
-          <div>
-            <label>Scheduled start</label>
-            <input type="date" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
-          </div>
-
-          <div>
-            <label>Scheduled end</label>
-            <input type="date" value={form.end_date} onChange={(e) => set('end_date', e.target.value)} />
-          </div>
-
-          <div>
-            <label>Main tech</label>
-            <select value={form.main_tech} onChange={(e) => set('main_tech', e.target.value)}>
-              <option value="">— Select —</option>
-              {techList.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-            </select>
-          </div>
+          <SelectWithAdd
+            label="Main tech"
+            hint="Pick one or add a new tech on the spot."
+            value={form.main_tech}
+            onChange={(v) => set('main_tech', v)}
+            items={techList}
+            onAdd={addTech}
+            placeholder="New tech name"
+          />
 
           <div>
             <label>Status</label>
@@ -125,14 +181,27 @@ export default function NewJob() {
             </select>
           </div>
 
-          <div className="field-full">
-            <label>Subcontractor(s) (free text)</label>
-            <input value={form.subcontractors} onChange={(e) => set('subcontractors', e.target.value)} placeholder="e.g. Acme Plumbing, Joe's Electric" />
+          <div>
+            <label>Scheduled start</label>
+            <input type="date" value={form.start_date}
+              onChange={(e) => set('start_date', e.target.value)} />
+          </div>
+          <div>
+            <label>Scheduled end</label>
+            <input type="date" value={form.end_date}
+              onChange={(e) => set('end_date', e.target.value)} />
           </div>
 
           <div className="field-full">
-            <label>Crew access / site-visit notes</label>
-            <textarea value={form.crew_access} onChange={(e) => set('crew_access', e.target.value)} placeholder="Lockbox code, parking, gate, where to find keys…" />
+            <label>Subcontractor(s)</label>
+            <input value={form.subcontractors} onChange={(e) => set('subcontractors', e.target.value)}
+              placeholder="e.g. Zahava Electrical, Lubov Plumbing" />
+          </div>
+
+          <div className="field-full">
+            <label>Notes</label>
+            <textarea value={form.crew_access} onChange={(e) => set('crew_access', e.target.value)}
+              placeholder="Access information, tenant contact information, additional notes…" />
           </div>
 
           <div className="field-full">

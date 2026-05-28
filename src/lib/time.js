@@ -27,6 +27,17 @@ export function laNowLabel() {
   }).format(new Date())
 }
 
+// Day + date, no time. e.g. "Thursday, May 28, 2026"
+export function laDayDateLabel() {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ,
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date())
+}
+
 // Parse 'YYYY-MM-DD' into a UTC-noon Date to avoid off-by-one from TZ shifts.
 export function parseISODate(iso) {
   if (!iso) return null

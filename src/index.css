@@ -59,6 +59,11 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+input:disabled, select:disabled, textarea:disabled {
+  background: #eef0f4;
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}
 textarea { resize: vertical; min-height: 90px; line-height: 1.45; }
 label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-soft); margin-bottom: 6px; }
 
@@ -83,14 +88,8 @@ a { color: inherit; text-decoration: none; }
 .btn-block { width: 100%; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ---------- logo chip (dark badge so the white logo reads on light bg) -- */
-.logo-chip {
-  background: var(--brand);
-  border-radius: 12px;
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 8px;
-}
-.logo-chip img { display: block; height: 100%; width: auto; object-fit: contain; }
+/* ---------- logo (transparent mark, no box) ---------- */
+.logo { display: block; width: auto; object-fit: contain; }
 
 /* ---------- layout ---------- */
 .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
@@ -101,8 +100,9 @@ a { color: inherit; text-decoration: none; }
   background: rgba(255,255,255,.86); backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.topbar-inner { display: flex; align-items: center; gap: 12px; height: 60px; }
-.topbar .logo-chip { height: 40px; }
+.topbar-inner { display: flex; align-items: center; gap: 12px; height: 64px; }
+.topbar .logo { height: 46px; cursor: pointer; }
+.brand-link { display: flex; align-items: center; gap: 12px; cursor: pointer; }
 .brand-name { font-family: 'Fraunces', serif; font-weight: 700; font-size: 19px; letter-spacing: -.02em; }
 .brand-sub { font-size: 11px; color: var(--ink-faint); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
 .topbar-spacer { flex: 1; }
@@ -228,8 +228,8 @@ a { color: inherit; text-decoration: none; }
 .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
   background: radial-gradient(1200px 600px at 80% -10%, #ffece2 0%, transparent 55%), var(--bg); }
 .login-card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow-lift); padding: 30px 26px; width: 100%; max-width: 400px; }
-.login-logo { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 24px; }
-.login-logo .logo-chip { height: 76px; padding: 14px; }
+.login-logo { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 22px; }
+.login-logo .logo { height: 132px; }
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px);} to {opacity:1; transform: none;} }
 .fade-up { animation: fadeUp .3s ease both; }

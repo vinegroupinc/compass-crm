@@ -2,8 +2,8 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
-import { LogoChip, Modal } from './UI'
-import { laNowLabel, daysSinceTimestamp } from '../lib/time'
+import { Logo, Modal } from './UI'
+import { laDayDateLabel, daysSinceTimestamp } from '../lib/time'
 
 function FollowupPrompt({ stale, onClose }) {
   const navigate = useNavigate()
@@ -40,6 +40,7 @@ function FollowupPrompt({ stale, onClose }) {
 export default function Layout({ children }) {
   const { user, signOut } = useAuth()
   const { staleJobs } = useData()
+  const navigate = useNavigate()
   const [showPrompt, setShowPrompt] = useState(true)
 
   const navItem = ({ isActive }) => (isActive ? 'active' : '')
@@ -48,17 +49,18 @@ export default function Layout({ children }) {
     <div className="app-shell">
       <header className="topbar">
         <div className="container topbar-inner">
-          <LogoChip />
-          <div>
-            <div className="brand-name">Compass</div>
-            <div className="brand-sub">{laNowLabel()} · LA</div>
+          <div className="brand-link" onClick={() => navigate('/')} role="button" aria-label="Go to dashboard">
+            <Logo variant="dark" />
+            <div>
+              <div className="brand-sub">{laDayDateLabel()} · Los Angeles</div>
+            </div>
           </div>
           <div className="topbar-spacer" />
           <nav className="nav desktop-nav">
             <NavLink to="/" end className={navItem}>Dashboard</NavLink>
             <NavLink to="/calendar" className={navItem}>Calendar</NavLink>
             <NavLink to="/properties" className={navItem}>Properties</NavLink>
-            <NavLink to="/lists" className={navItem}>Lists</NavLink>
+            <NavLink to="/lists" className={navItem}>Contacts</NavLink>
           </nav>
           <button className="btn btn-ghost btn-sm desktop-nav" onClick={signOut} style={{ marginLeft: 8 }}>
             {user?.name} · Sign out
@@ -84,7 +86,7 @@ export default function Layout({ children }) {
           <span className="ico">⌂</span>Props
         </NavLink>
         <NavLink to="/lists" className={navItem}>
-          <span className="ico">≡</span>Lists
+          <span className="ico">≡</span>Contacts
         </NavLink>
       </nav>
 

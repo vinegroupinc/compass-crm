@@ -1,11 +1,11 @@
 import { STATUS_COLORS } from '../lib/constants'
 
-export function LogoChip({ className = '' }) {
-  return (
-    <span className={`logo-chip ${className}`}>
-      <img src="/logo.png" alt="Compass" />
-    </span>
-  )
+// variant: 'dark' renders the dark-ink mark (for light backgrounds like the
+// header/login). 'white' renders the white mark (for dark backgrounds).
+// No black box anymore — the mark sits directly on whatever is behind it.
+export function Logo({ variant = 'dark', className = '', style = {} }) {
+  const src = variant === 'white' ? '/logo-white.png' : '/logo-dark.png'
+  return <img src={src} alt="Compass" className={`logo ${className}`} style={style} />
 }
 
 export function StatusBadge({ status }) {

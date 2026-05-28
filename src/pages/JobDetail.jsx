@@ -27,12 +27,17 @@ export default function JobDetail() {
   const [editingNoteId, setEditingNoteId] = useState(null)
   const [editNoteText, setEditNoteText] = useState('')
   const [history, setHistory] = useState([])
+  const [sched, setSched] = useState({ start_date: '', end_date: '' })
 
   const load = useCallback(async () => {
     try {
       const j = await db.getJob(id)
       setJob(j)
       setDraft(j)
+      setSched({
+        start_date: j.start_date || '',
+        end_date: j.end_date || '',
+      })
       const h = await db.getJobsByAddress(j.street_address)
       setHistory(h.filter((x) => x.id !== j.id))
     } catch (e) {
@@ -55,8 +60,6 @@ export default function JobDetail() {
         management_company: draft.management_company,
         unit_manager: draft.unit_manager,
         job_type: draft.job_type,
-        start_date: draft.start_date || null,
-        end_date: draft.end_date || null,
         main_tech: draft.main_tech,
         subcontractors: draft.subcontractors,
         crew_access: draft.crew_access,
@@ -83,6 +86,16 @@ export default function JobDetail() {
       await db.updateJob(job.id, { [field]: !job[field] })
       await load(); await refresh()
     } catch (e) { flash(e?.message || 'Failed') }
+  }
+
+  async function saveSchedule() {
+    try {
+      await db.updateJob(job.id, {
+        start_date: sched.start_date || null,
+        end_date: sched.end_date || null,
+      })
+      await load(); await refresh(); flash('Schedule updated')
+    } catch (e) { flash(e?.message || 'Could not update schedule') }
   }
 
   async function postNote() {
@@ -165,16 +178,41 @@ export default function JobDetail() {
         </div>
       </div>
 
+      {/* schedule — editable inline, no Edit mode needed */}
+      <div className="card-pad" style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Schedule</h2>
+        <div className="hint" style={{ marginBottom: 12 }}>
+          {job.start_date
+            ? `Currently ${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}.`
+            : 'No dates set yet.'}
+        </div>
+        <div className="form-grid" style={{ gap: 14 }}>
+          <div>
+            <label>Scheduled start</label>
+            <input type="date" value={sched.start_date}
+              onChange={(e) => setSched((s) => ({ ...s, start_date: e.target.value }))} />
+          </div>
+          <div>
+            <label>Scheduled end</label>
+            <input type="date" value={sched.end_date}
+              onChange={(e) => setSched((s) => ({ ...s, end_date: e.target.value }))} />
+          </div>
+        </div>
+        <button className="btn btn-accent btn-sm" style={{ marginTop: 12 }} onClick={saveSchedule}>
+          Save schedule
+        </button>
+      </div>
+
       {/* details / edit */}
       <div className="card-pad" style={{ marginBottom: 16 }}>
         {!editing ? (
           <div className="job-meta" style={{ fontSize: 14, gap: '10px 24px' }}>
             <span>🏢 {job.management_company || '—'}</span>
-            <span>👤 Mgr: {job.unit_manager || '—'}</span>
+            <span>👤 Manager: {job.unit_manager || '—'}</span>
             <span>🔧 {job.main_tech || '—'}</span>
-            <span>📅 {job.start_date ? formatDate(job.start_date) : '—'}{job.end_date ? ` – ${formatDate(job.end_date)}` : ''}</span>
+            <span>📅 {job.start_date ? `${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}` : '—'}</span>
             <span style={{ flexBasis: '100%' }}>🧰 Subs: {job.subcontractors || '—'}</span>
-            <span style={{ flexBasis: '100%' }}>🔑 Access: {job.crew_access || '—'}</span>
+            <span style={{ flexBasis: '100%' }}>📝 Notes: {job.crew_access || '—'}</span>
           </div>
         ) : (
           <>
@@ -194,7 +232,7 @@ export default function JobDetail() {
                   <option value="">— Select —</option>
                   {mgmtList.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
                 </select></div>
-              <div><label>Unit manager</label>
+              <div><label>Manager</label>
                 <input value={d.unit_manager || ''} onChange={(e) => setDraft({ ...d, unit_manager: e.target.value })} /></div>
               <div><label>Main tech</label>
                 <select value={d.main_tech || ''} onChange={(e) => setDraft({ ...d, main_tech: e.target.value })}>
@@ -205,14 +243,12 @@ export default function JobDetail() {
                 <select value={d.status} onChange={(e) => setDraft({ ...d, status: e.target.value })}>
                   {STATUSES.map((s) => <option key={s}>{s}</option>)}
                 </select></div>
-              <div><label>Scheduled start</label>
-                <input type="date" value={d.start_date || ''} onChange={(e) => setDraft({ ...d, start_date: e.target.value })} /></div>
-              <div><label>Scheduled end</label>
-                <input type="date" value={d.end_date || ''} onChange={(e) => setDraft({ ...d, end_date: e.target.value })} /></div>
               <div className="field-full"><label>Subcontractor(s)</label>
-                <input value={d.subcontractors || ''} onChange={(e) => setDraft({ ...d, subcontractors: e.target.value })} /></div>
-              <div className="field-full"><label>Crew access / site notes</label>
-                <textarea value={d.crew_access || ''} onChange={(e) => setDraft({ ...d, crew_access: e.target.value })} /></div>
+                <input value={d.subcontractors || ''} onChange={(e) => setDraft({ ...d, subcontractors: e.target.value })}
+                  placeholder="e.g. Zahava Electrical, Lubov Plumbing" /></div>
+              <div className="field-full"><label>Notes</label>
+                <textarea value={d.crew_access || ''} onChange={(e) => setDraft({ ...d, crew_access: e.target.value })}
+                  placeholder="Access information, tenant contact information, additional notes…" /></div>
             </div>
             <div className="row" style={{ marginTop: 16 }}>
               <button className="btn btn-accent btn-block" onClick={saveEdits}>Save changes</button>

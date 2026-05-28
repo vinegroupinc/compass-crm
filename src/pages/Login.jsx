@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { LogoChip } from '../components/UI'
+import { Logo } from '../components/UI'
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -26,10 +26,9 @@ export default function Login() {
     <div className="login-wrap">
       <div className="login-card fade-up">
         <div className="login-logo">
-          <LogoChip />
+          <Logo variant="dark" />
           <div style={{ textAlign: 'center' }}>
-            <div className="brand-name" style={{ fontSize: 24 }}>Compass</div>
-            <div className="brand-sub">Job & Project Board</div>
+            <div className="brand-sub">Custom Workflow for Vine Group, Inc.</div>
           </div>
         </div>
         <form onSubmit={submit}>

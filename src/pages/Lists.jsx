@@ -60,7 +60,7 @@ export default function Lists() {
     <>
       <div className="page-head">
         <div>
-          <h1>Saved Lists</h1>
+          <h1>Contacts</h1>
           <div className="hint">These feed the dropdowns on the job form.</div>
         </div>
       </div>
