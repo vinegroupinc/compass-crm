@@ -397,6 +397,64 @@ a { color: inherit; text-decoration: none; }
   margin: 0;
 }
 
+/* Larger version used inside the add-task form on the right column */
+.task-date-icon-lg {
+  width: 44px;
+  height: 42px;
+}
+
+/* Clickable date pill on existing task rows. The visible chip shows the
+   formatted date (or "Set due date"); the native date input sits invisibly
+   over it so clicking anywhere on the chip opens the picker. */
+.task-date-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid #fde2c0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 26px;
+}
+.task-date-pill input[type="date"] {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  opacity: 0; cursor: pointer;
+  border: none; padding: 0; margin: 0; min-height: 0;
+}
+.task-date-label::before { content: '📅 '; margin-right: 4px; }
+
+/* Tasks add-form: Assign + Due on one line */
+.task-form-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.task-form-row > div:first-child { flex: 1; min-width: 0; }
+
+/* Inline link-style button for compact actions (like "clear") */
+.link-btn {
+  background: none; border: none; padding: 0;
+  color: var(--accent); font-weight: 600;
+  cursor: pointer; font-size: inherit;
+  text-decoration: underline;
+}
+
+/* Bottom grid: Schedule + Property History side by side on desktop, stack on mobile */
+.bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 759px) {
+  .bottom-grid { grid-template-columns: 1fr; }
+}
+
 /* ---------- address autocomplete ---------- */
 .address-ac { position: relative; }
 .address-ac-menu {

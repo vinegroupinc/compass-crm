@@ -242,15 +242,6 @@ export default function JobDetail() {
         {!editing ? (
           <div className="job-details-split">
             <div className="job-details-col">
-              <div className="job-detail-row"><span className="job-detail-label">🧰 Subs</span><span className="job-detail-value">{
-                (job.subcontractor_names && job.subcontractor_names.length > 0)
-                  ? job.subcontractor_names.join(', ')
-                  : (job.subcontractors || '—')
-              }</span></div>
-              <div className="job-detail-row"><span className="job-detail-label">🔑 Access</span><span className="job-detail-value">{job.access_info || '—'}</span></div>
-              <div className="job-detail-row"><span className="job-detail-label">📝 Notes</span><span className="job-detail-value">{job.crew_access || '—'}</span></div>
-            </div>
-            <div className="job-details-col">
               <div className="job-detail-row"><span className="job-detail-label">🏢 Client</span><span className="job-detail-value">{job.management_company || '—'}</span></div>
               <div className="job-detail-row"><span className="job-detail-label">👤 Manager</span><span className="job-detail-value">{job.unit_manager || '—'}</span></div>
               <div className="job-detail-row"><span className="job-detail-label">🔧 Vine Tech</span><span className="job-detail-value">{
@@ -258,6 +249,15 @@ export default function JobDetail() {
                   ? job.main_techs.join(', ')
                   : (job.main_tech || '—')
               }</span></div>
+            </div>
+            <div className="job-details-col">
+              <div className="job-detail-row"><span className="job-detail-label">🧰 Subs</span><span className="job-detail-value">{
+                (job.subcontractor_names && job.subcontractor_names.length > 0)
+                  ? job.subcontractor_names.join(', ')
+                  : (job.subcontractors || '—')
+              }</span></div>
+              <div className="job-detail-row"><span className="job-detail-label">🔑 Access</span><span className="job-detail-value">{job.access_info || '—'}</span></div>
+              <div className="job-detail-row"><span className="job-detail-label">📝 Notes</span><span className="job-detail-value">{job.crew_access || '—'}</span></div>
             </div>
           </div>
         ) : (
@@ -352,20 +352,18 @@ export default function JobDetail() {
                         <option key={m.id} value={m.id}>{m.full_name}</option>
                       ))}
                     </select>
-                    {/* Compact icon-only date input — CSS hides the date
-                        text and keeps only the calendar picker button. */}
-                    <input
-                      type="date"
-                      className="task-date-icon"
-                      value={t.due_date || ''}
-                      onChange={(e) => changeTaskDue(t.id, e.target.value)}
-                      title={t.due_date ? `Shows ${formatDate(t.due_date)}` : 'Set due date'}
-                    />
-                    {t.due_date && t.due_date > today && (
-                      <span className="badge badge-soft" style={{ fontSize: 11 }}>
-                        {formatDate(t.due_date)}
+                    {/* Click the date text itself to change the date.
+                        Native <input type="date"> sits invisibly on top. */}
+                    <span className="task-date-pill" title="Click to change due date">
+                      <span className="task-date-label">
+                        {t.due_date ? `Due ${formatDate(t.due_date)}` : 'Set due date'}
                       </span>
-                    )}
+                      <input
+                        type="date"
+                        value={t.due_date || ''}
+                        onChange={(e) => changeTaskDue(t.id, e.target.value)}
+                      />
+                    </span>
                   </div>
                 </div>
               ))}
@@ -388,25 +386,44 @@ export default function JobDetail() {
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addTask() }}
               rows={3}
             />
-            <label style={{ marginTop: 12 }}>Assign to</label>
-            <select value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
-              {team.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.id === user.id ? `Me (${m.full_name})` : m.full_name}
-                </option>
-              ))}
-            </select>
-            <label style={{ marginTop: 12 }}>Due date (optional)</label>
-            <input
-              type="date"
-              value={newTaskDue}
-              onChange={(e) => setNewTaskDue(e.target.value)}
-            />
+            <div className="task-form-row" style={{ marginTop: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <label>Assign to</label>
+                <select value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
+                  {team.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.id === user.id ? `Me (${m.full_name})` : m.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label>Due</label>
+                <input
+                  type="date"
+                  className="task-date-icon task-date-icon-lg"
+                  value={newTaskDue}
+                  onChange={(e) => setNewTaskDue(e.target.value)}
+                  title={newTaskDue ? `Due ${formatDate(newTaskDue)}` : 'Optional due date'}
+                />
+              </div>
+            </div>
+            {newTaskDue && (
+              <div className="hint" style={{ marginTop: 6, fontSize: 12 }}>
+                Hidden from dashboards until {formatDate(newTaskDue)}.{' '}
+                <button
+                  className="link-btn"
+                  onClick={() => setNewTaskDue('')}
+                >
+                  clear
+                </button>
+              </div>
+            )}
             <button className="btn btn-primary btn-block" style={{ marginTop: 14 }} onClick={addTask}>
               Push to planner
             </button>
             <div className="hint" style={{ marginTop: 8, fontSize: 12 }}>
-              Optional date hides the task until that day. Leave blank to show immediately.
+              Leave the due date blank to show immediately.
             </div>
           </div>
         </div>
@@ -471,50 +488,49 @@ export default function JobDetail() {
         </div>
       </div>
 
-      {/* schedule — moved to the bottom of the page per latest design */}
-      <div className="card-pad" style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Schedule</h2>
-        <div className="hint" style={{ marginBottom: 12 }}>
-          {job.start_date
-            ? `Currently ${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}.`
-            : 'Not yet scheduled.'}
-        </div>
-        <div className="date-pair">
+      {/* schedule + property history — paired side-by-side at the bottom */}
+      <div className="bottom-grid">
+        <div className="card-pad">
+          <h2 style={{ fontSize: 18, marginBottom: 4 }}>Schedule</h2>
+          <div className="hint" style={{ marginBottom: 12 }}>
+            {job.start_date
+              ? `Currently ${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}.`
+              : 'Not yet scheduled.'}
+          </div>
           <div>
             <label>Scheduled start</label>
             <input type="date" value={sched.start_date}
               onChange={(e) => setSched((s) => ({ ...s, start_date: e.target.value }))} />
           </div>
-          <div>
+          <div style={{ marginTop: 10 }}>
             <label>Scheduled end</label>
             <input type="date" value={sched.end_date}
               onChange={(e) => setSched((s) => ({ ...s, end_date: e.target.value }))} />
           </div>
+          <button className="btn btn-accent btn-sm" style={{ marginTop: 14 }} onClick={saveSchedule}>
+            Save schedule
+          </button>
         </div>
-        <button className="btn btn-accent btn-sm" style={{ marginTop: 12 }} onClick={saveSchedule}>
-          Save schedule
-        </button>
-      </div>
 
-      {/* property history */}
-      <div className="card-pad">
-        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Property history</h2>
-        <div className="hint" style={{ marginBottom: 12 }}>
-          Other jobs at {job.street_address} (any unit).
-        </div>
-        {history.length === 0 && <div className="hint">No other jobs at this address.</div>}
-        {history.map((h) => (
-          <Link key={h.id} to={`/job/${h.id}`} className="list-item" style={{ textDecoration: 'none' }}>
-            <div className="name">
-              {h.unit ? `Unit ${h.unit} · ` : ''}{h.job_type}
-              <div className="hint">{h.start_date ? formatDate(h.start_date) : 'No date'}</div>
-            </div>
-            <StatusBadge status={h.status} />
+        <div className="card-pad">
+          <h2 style={{ fontSize: 18, marginBottom: 4 }}>Property history</h2>
+          <div className="hint" style={{ marginBottom: 12 }}>
+            Other jobs at {job.street_address} (any unit).
+          </div>
+          {history.length === 0 && <div className="hint">No other jobs at this address.</div>}
+          {history.map((h) => (
+            <Link key={h.id} to={`/job/${h.id}`} className="list-item" style={{ textDecoration: 'none' }}>
+              <div className="name">
+                {h.unit ? `Unit ${h.unit} · ` : ''}{h.job_type}
+                <div className="hint">{h.start_date ? formatDate(h.start_date) : 'No date'}</div>
+              </div>
+              <StatusBadge status={h.status} />
+            </Link>
+          ))}
+          <Link to={`/properties?addr=${encodeURIComponent(job.street_address)}`} className="btn btn-ghost btn-sm" style={{ marginTop: 10 }}>
+            View Full Property History →
           </Link>
-        ))}
-        <Link to={`/properties?addr=${encodeURIComponent(job.street_address)}`} className="btn btn-ghost btn-sm" style={{ marginTop: 10 }}>
-          View Full Property History →
-        </Link>
+        </div>
       </div>
 
       {/* Danger Zone — separated and clearly marked so deletion is deliberate. */}
