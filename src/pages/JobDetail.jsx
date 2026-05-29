@@ -352,9 +352,23 @@ export default function JobDetail() {
                         <option key={m.id} value={m.id}>{m.full_name}</option>
                       ))}
                     </select>
-                    {/* Click the date text itself to change the date.
-                        Native <input type="date"> sits invisibly on top. */}
-                    <span className="task-date-pill" title="Click to change due date">
+                    {/* Click the pill to open the date picker. We use a real
+                        button + showPicker() because invisible-overlay tricks
+                        don't reliably trigger the native picker in Safari/iOS. */}
+                    <button
+                      type="button"
+                      className="task-date-pill"
+                      title="Click to change due date"
+                      onClick={(e) => {
+                        const input = e.currentTarget.querySelector('input[type="date"]')
+                        if (input?.showPicker) {
+                          try { input.showPicker() } catch { input.focus() }
+                        } else {
+                          input?.focus()
+                          input?.click()
+                        }
+                      }}
+                    >
                       <span className="task-date-label">
                         {t.due_date ? `Due ${formatDate(t.due_date)}` : 'Set due date'}
                       </span>
@@ -362,8 +376,10 @@ export default function JobDetail() {
                         type="date"
                         value={t.due_date || ''}
                         onChange={(e) => changeTaskDue(t.id, e.target.value)}
+                        aria-hidden="true"
+                        tabIndex={-1}
                       />
-                    </span>
+                    </button>
                   </div>
                 </div>
               ))}
