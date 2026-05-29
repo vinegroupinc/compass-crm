@@ -352,34 +352,20 @@ export default function JobDetail() {
                         <option key={m.id} value={m.id}>{m.full_name}</option>
                       ))}
                     </select>
-                    {/* Click the pill to open the date picker. We use a real
-                        button + showPicker() because invisible-overlay tricks
-                        don't reliably trigger the native picker in Safari/iOS. */}
-                    <button
-                      type="button"
-                      className="task-date-pill"
-                      title="Click to change due date"
-                      onClick={(e) => {
-                        const input = e.currentTarget.querySelector('input[type="date"]')
-                        if (input?.showPicker) {
-                          try { input.showPicker() } catch { input.focus() }
-                        } else {
-                          input?.focus()
-                          input?.click()
-                        }
-                      }}
-                    >
-                      <span className="task-date-label">
-                        {t.due_date ? `Due ${formatDate(t.due_date)}` : 'Set due date'}
-                      </span>
+                    {/* Plain native date input, styled to look like a pill.
+                        Most reliable approach — every browser knows what to do
+                        with a real date input. The label above it shows the
+                        current value in human format. */}
+                    <span className="task-date-wrap">
+                      {t.due_date && <span className="task-date-prefix">Due</span>}
                       <input
                         type="date"
+                        className="task-date-input"
                         value={t.due_date || ''}
                         onChange={(e) => changeTaskDue(t.id, e.target.value)}
-                        aria-hidden="true"
-                        tabIndex={-1}
+                        title="Change due date"
                       />
-                    </button>
+                    </span>
                   </div>
                 </div>
               ))}

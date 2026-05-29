@@ -406,35 +406,42 @@ a { color: inherit; text-decoration: none; }
 /* Clickable date pill on existing task rows. The visible chip shows the
    formatted date (or "Set due date"); the native date input sits invisibly
    over it so clicking anywhere on the chip opens the picker. */
-.task-date-pill {
-  /* Was <span>, now <button> — reset native button look */
-  appearance: none;
-  font-family: inherit;
-  position: relative;
+/* Existing-task date input. Plain visible native input, styled to read as
+   "Due [date]" inline with the rest of the row. No tricks — just an input
+   the user can click directly. The "Due" prefix sits beside it. */
+.task-date-wrap {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
+  gap: 6px;
   background: var(--accent-soft);
   border: 1px solid #fde2c0;
-  color: var(--accent);
+  border-radius: 999px;
+  padding: 4px 12px;
   font-size: 12px;
   font-weight: 600;
+  color: var(--accent);
+  min-height: 28px;
+}
+.task-date-prefix { font-weight: 700; }
+.task-date-input {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  width: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: inherit;
   cursor: pointer;
-  min-height: 26px;
 }
-.task-date-pill:hover { background: #ffe9d6; }
-/* Hide the underlying date input completely — we open the picker via JS.
-   Keep it in the DOM (1px) so we can still call showPicker()/focus() on it. */
-.task-date-pill input[type="date"] {
-  position: absolute;
-  left: 0; bottom: 0;
-  width: 1px; height: 1px;
-  opacity: 0;
-  pointer-events: none;
-  border: none; padding: 0; margin: 0; min-height: 0;
+.task-date-input:focus { outline: none; }
+.task-date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+  filter: invert(35%) sepia(85%) saturate(2300%) hue-rotate(15deg);
 }
-.task-date-label::before { content: '📅 '; margin-right: 4px; }
 
 /* Tasks add-form: Assign + Due on one line */
 .task-form-row {
