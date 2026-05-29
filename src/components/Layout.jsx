@@ -50,17 +50,17 @@ export default function Layout({ children }) {
       <header className="topbar">
         <div className="container topbar-inner">
           <div className="brand-link" onClick={() => navigate('/')} role="button" aria-label="Go to dashboard">
-            <Logo />
+            <Logo variant="header" />
             <div>
-              <div className="brand-sub">{laDayDateLabel()} · Los Angeles</div>
+              <div className="brand-sub">Compass • {laDayDateLabel()}</div>
             </div>
           </div>
           <div className="topbar-spacer" />
           <nav className="nav desktop-nav">
             <NavLink to="/" end className={navItem}>Dashboard</NavLink>
             <NavLink to="/calendar" className={navItem}>Calendar</NavLink>
-            <NavLink to="/properties" className={navItem}>Properties</NavLink>
             <NavLink to="/lists" className={navItem}>Contacts</NavLink>
+            <NavLink to="/search" className={navItem}>Search</NavLink>
           </nav>
           <button className="btn btn-ghost btn-sm desktop-nav" onClick={signOut} style={{ marginLeft: 8 }}>
             {user?.name} · Sign out
@@ -75,6 +75,13 @@ export default function Layout({ children }) {
         <div className="container">{children}</div>
       </main>
 
+      <footer className="site-footer">
+        <div className="container site-footer-inner">
+          <span>© 2026 Compass, a Vine Group company</span>
+          <span>Compass is for internal use only</span>
+        </div>
+      </footer>
+
       <nav className="bottom-nav">
         <NavLink to="/" end className={navItem}>
           <span className="ico">▣</span>Dashboard
@@ -85,11 +92,11 @@ export default function Layout({ children }) {
         <NavLink to="/new" className={navItem}>
           <span className="ico">＋</span>New Job
         </NavLink>
-        <NavLink to="/properties" className={navItem}>
-          <span className="ico">⌂</span>Props
-        </NavLink>
         <NavLink to="/lists" className={navItem}>
           <span className="ico">≡</span>Contacts
+        </NavLink>
+        <NavLink to="/search" className={navItem}>
+          <span className="ico">⌕</span>Search
         </NavLink>
       </nav>
 

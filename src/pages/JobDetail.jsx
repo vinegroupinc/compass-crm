@@ -191,7 +191,6 @@ export default function JobDetail() {
           {!editing && (
             <button className="btn btn-ghost btn-sm" onClick={() => { setDraft(job); setEditing(true) }}>Edit</button>
           )}
-          <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>
         </div>
       </div>
 
@@ -419,8 +418,17 @@ export default function JobDetail() {
           </Link>
         ))}
         <Link to={`/properties?addr=${encodeURIComponent(job.street_address)}`} className="btn btn-ghost btn-sm" style={{ marginTop: 10 }}>
-          View full property timeline →
+          View Full Property History →
         </Link>
+      </div>
+
+      {/* Danger Zone — separated and clearly marked so deletion is deliberate. */}
+      <div className="danger-zone">
+        <h3>Danger Zone</h3>
+        <p>Deleting this job removes it from the dashboard, calendar, and search.</p>
+        <button className="btn btn-danger" onClick={() => setConfirmDelete(true)}>
+          Delete this job
+        </button>
       </div>
 
       <Toast message={toast} />
@@ -429,9 +437,8 @@ export default function JobDetail() {
         <Modal onClose={() => setConfirmDelete(false)}>
           <h3>Delete this job?</h3>
           <p style={{ color: 'var(--ink-soft)', fontSize: 14, marginTop: 6 }}>
-            <strong>{job.street_address}{job.unit ? ` · Unit ${job.unit}` : ''}</strong> will be hidden
-            from the dashboard, calendar, and property history.
-            Notes and tasks stay attached, and we can recover it later if needed.
+            <strong>{job.street_address}{job.unit ? ` · Unit ${job.unit}` : ''}</strong> will be removed
+            from the dashboard, calendar, and search.
           </p>
           <div className="row" style={{ marginTop: 16 }}>
             <button className="btn btn-danger btn-block" onClick={deleteJob}>Yes, delete</button>

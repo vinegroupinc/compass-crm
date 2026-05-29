@@ -1,8 +1,12 @@
 import { STATUS_COLORS } from '../lib/constants'
 
-// Single logo image (white background, black mark + wordmark), used as-is.
-export function Logo({ className = '', style = {} }) {
-  return <img src="/logo.png" alt="Compass — a Vine Group company" className={`logo ${className}`} style={style} />
+// Logo. Two flavors:
+//  - 'full' (default): the full logo.png with COMPASS wordmark, for login screen
+//  - 'header': the C-only logo for the top bar inside the app
+export function Logo({ variant = 'full', className = '', style = {} }) {
+  const src = variant === 'header' ? '/logo-header.png' : '/logo.png'
+  const alt = variant === 'header' ? 'Compass' : 'Compass — a Vine Group company'
+  return <img src={src} alt={alt} className={`logo ${className}`} style={style} />
 }
 
 export function StatusBadge({ status }) {

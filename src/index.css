@@ -90,8 +90,51 @@ a { color: inherit; text-decoration: none; }
 
 /* ---------- logo (white-bg image, used as-is) ---------- */
 .logo { display: block; width: auto; height: auto; object-fit: contain; }
-.topbar .logo { height: 60px; cursor: pointer; border-radius: 8px; }
+.topbar .logo { height: 44px; cursor: pointer; border-radius: 8px; }
 .login-logo .logo { width: 280px; max-width: 80%; height: auto; }
+
+/* ---------- site footer ---------- */
+.site-footer {
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  padding: 18px 0;
+  margin-bottom: 0;
+}
+.site-footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+/* ---------- danger zone ---------- */
+.danger-zone {
+  margin-top: 26px;
+  border: 1.5px solid #f3c7c7;
+  background: var(--attention-soft);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.danger-zone h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--attention);
+  margin: 0 0 4px;
+}
+.danger-zone p {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0 0 14px;
+}
+
+@media (max-width: 759px) {
+  .site-footer-inner { justify-content: center; text-align: center; flex-direction: column; }
+  .site-footer { margin-bottom: calc(var(--tap) + 24px); } /* clear the bottom nav */
+}
 
 /* ---------- layout ---------- */
 .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
@@ -102,7 +145,7 @@ a { color: inherit; text-decoration: none; }
   background: rgba(255,255,255,.86); backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.topbar-inner { display: flex; align-items: center; gap: 12px; height: 76px; }
+.topbar-inner { display: flex; align-items: center; gap: 12px; height: 64px; }
 .brand-link { display: flex; align-items: center; gap: 12px; cursor: pointer; }
 .brand-name { font-family: 'Fraunces', serif; font-weight: 700; font-size: 19px; letter-spacing: -.02em; }
 .brand-sub { font-size: 11px; color: var(--ink-faint); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
