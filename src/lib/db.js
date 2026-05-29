@@ -295,11 +295,16 @@ export async function addNote(jobId, body, authorId, authorName) {
   return data
 }
 
-export async function editOwnNote(id, body) {
-  // RLS ensures only the author can do this.
+// Author-only note deletion (within 24h, enforced server-side by RLS).
+// Replaces the body with a tombstone string and sets deleted_at so the UI
+// can render it greyed out. We don't DROP the row — keeps the timeline intact.
+export async function deleteOwnNote(id, authorName) {
   const { data, error } = await supabase
     .from('notes')
-    .update({ body: body.trim(), edited_at: new Date().toISOString() })
+    .update({
+      body: `${authorName} deleted a message`,
+      deleted_at: new Date().toISOString(),
+    })
     .eq('id', id)
     .select()
     .single()

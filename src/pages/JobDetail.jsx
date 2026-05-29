@@ -5,8 +5,8 @@ import { useData } from '../context/DataContext'
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge, Toast, Modal } from '../components/UI'
 import { ContactMultiSelect } from '../components/ContactMultiSelect'
-import { JOB_TYPES, STATUSES } from '../lib/constants'
-import { formatTimestamp, formatDate, daysSinceTimestamp, laToday } from '../lib/time'
+import { JOB_TYPES, STATUSES, STATUS_COLORS } from '../lib/constants'
+import { formatTimestamp, formatDate, laToday } from '../lib/time'
 
 const USERS_NOTE =
   'Tasks can be assigned to any team member. Assigned open tasks appear on that person’s dashboard.'
@@ -26,8 +26,6 @@ export default function JobDetail() {
   const [newTask, setNewTask] = useState('')
   const [taskAssignee, setTaskAssignee] = useState(user.id)
   const [newTaskDue, setNewTaskDue] = useState('')
-  const [editingNoteId, setEditingNoteId] = useState(null)
-  const [editNoteText, setEditNoteText] = useState('')
   const [history, setHistory] = useState([])
   const [sched, setSched] = useState({ start_date: '', end_date: '' })
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -133,11 +131,12 @@ export default function JobDetail() {
     } catch (e) { flash(e?.message || 'Could not add note') }
   }
 
-  async function saveNoteEdit(noteId) {
+  async function deleteNote(noteId) {
+    if (!confirm('Delete this message? This cannot be undone.')) return
     try {
-      await db.editOwnNote(noteId, editNoteText)
-      setEditingNoteId(null); await load(); flash('Note updated')
-    } catch (e) { flash(e?.message || 'Only the author can edit this note') }
+      await db.deleteOwnNote(noteId, user.name)
+      await load(); flash('Message deleted')
+    } catch (e) { flash(e?.message || 'Could not delete (only the author can delete, within 24 hours)') }
   }
 
   async function addTask() {
@@ -188,17 +187,36 @@ export default function JobDetail() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
+      <div className="page-head job-head">
+        <div style={{ flex: 1, minWidth: 0 }}>
           <Link to="/" className="hint">← Dashboard</Link>
           <h1 style={{ marginTop: 4 }}>
             {job.street_address}{job.unit ? <span style={{ color: 'var(--ink-faint)' }}> · Unit {job.unit}</span> : null}
           </h1>
-          <div className="hint">
-            Status set {daysSinceTimestamp(job.status_changed_at)} day(s) ago
+          <div className="hint job-schedule-row">
+            {job.start_date
+              ? `${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}`
+              : 'Not yet scheduled'}
           </div>
         </div>
-        <div className="row row-wrap" style={{ gap: 8 }}>
+        <div className="row row-wrap job-head-actions" style={{ gap: 8 }}>
+          {/* Clickable colored status pill — native <select> overlays for mobile-friendly dropdown */}
+          <span
+            className="status-pill"
+            style={{ background: STATUS_COLORS[job.status] || '#6b7280' }}
+            title="Click to change status"
+          >
+            {job.status}
+            <span className="status-pill-caret">▾</span>
+            <select
+              className="status-pill-select"
+              value={job.status}
+              onChange={(e) => quickStatus(e.target.value)}
+              aria-label="Change status"
+            >
+              {STATUSES.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </span>
           <button
             className={`btn btn-sm ${job.needs_attention ? 'btn-danger' : 'btn-ghost'}`}
             onClick={() => toggleFlag('needs_attention')}
@@ -219,63 +237,28 @@ export default function JobDetail() {
         </div>
       </div>
 
-      {/* status quick row */}
-      <div className="card-pad" style={{ marginBottom: 16 }}>
-        <div className="badges" style={{ marginBottom: 12 }}>
-          <StatusBadge status={job.status} />
-          {job.needs_attention && <span className="badge chip-attention">⚠ Needs Attention</span>}
-          <span className="badge badge-soft">{job.job_type}</span>
-        </div>
-        <label>Quick status change</label>
-        <select value={job.status} onChange={(e) => quickStatus(e.target.value)}>
-          {STATUSES.map((s) => <option key={s}>{s}</option>)}
-        </select>
-      </div>
-
-      {/* schedule — editable inline, no Edit mode needed */}
-      <div className="card-pad" style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Schedule</h2>
-        <div className="hint" style={{ marginBottom: 12 }}>
-          {job.start_date
-            ? `Currently ${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}.`
-            : 'No dates set yet.'}
-        </div>
-        <div className="date-pair">
-          <div>
-            <label>Scheduled start</label>
-            <input type="date" value={sched.start_date}
-              onChange={(e) => setSched((s) => ({ ...s, start_date: e.target.value }))} />
-          </div>
-          <div>
-            <label>Scheduled end</label>
-            <input type="date" value={sched.end_date}
-              onChange={(e) => setSched((s) => ({ ...s, end_date: e.target.value }))} />
-          </div>
-        </div>
-        <button className="btn btn-accent btn-sm" style={{ marginTop: 12 }} onClick={saveSchedule}>
-          Save schedule
-        </button>
-      </div>
-
       {/* details / edit */}
       <div className="card-pad" style={{ marginBottom: 16 }}>
         {!editing ? (
-          <div className="job-meta" style={{ fontSize: 14, gap: '10px 24px' }}>
-            <span>🏢 {job.management_company || '—'}</span>
-            <span>👤 Manager: {job.unit_manager || '—'}</span>
-            <span>🔧 Vine Tech: {
-              (job.main_techs && job.main_techs.length > 0)
-                ? job.main_techs.join(', ')
-                : (job.main_tech || '—')
-            }</span>
-            <span>📅 {job.start_date ? `${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}` : '—'}</span>
-            <span style={{ flexBasis: '100%' }}>🧰 Subs: {
-              (job.subcontractor_names && job.subcontractor_names.length > 0)
-                ? job.subcontractor_names.join(', ')
-                : (job.subcontractors || '—')
-            }</span>
-            <span style={{ flexBasis: '100%' }}>🔑 Access: {job.access_info || '—'}</span>
-            <span style={{ flexBasis: '100%' }}>📝 Notes: {job.crew_access || '—'}</span>
+          <div className="job-details-split">
+            <div className="job-details-col">
+              <div className="job-detail-row"><span className="job-detail-label">🧰 Subs</span><span className="job-detail-value">{
+                (job.subcontractor_names && job.subcontractor_names.length > 0)
+                  ? job.subcontractor_names.join(', ')
+                  : (job.subcontractors || '—')
+              }</span></div>
+              <div className="job-detail-row"><span className="job-detail-label">🔑 Access</span><span className="job-detail-value">{job.access_info || '—'}</span></div>
+              <div className="job-detail-row"><span className="job-detail-label">📝 Notes</span><span className="job-detail-value">{job.crew_access || '—'}</span></div>
+            </div>
+            <div className="job-details-col">
+              <div className="job-detail-row"><span className="job-detail-label">🏢 Client</span><span className="job-detail-value">{job.management_company || '—'}</span></div>
+              <div className="job-detail-row"><span className="job-detail-label">👤 Manager</span><span className="job-detail-value">{job.unit_manager || '—'}</span></div>
+              <div className="job-detail-row"><span className="job-detail-label">🔧 Vine Tech</span><span className="job-detail-value">{
+                (job.main_techs && job.main_techs.length > 0)
+                  ? job.main_techs.join(', ')
+                  : (job.main_tech || '—')
+              }</span></div>
+            </div>
           </div>
         ) : (
           <>
@@ -406,44 +389,62 @@ export default function JobDetail() {
       <div className="card-pad" style={{ marginBottom: 16 }}>
         <h2 style={{ fontSize: 18, marginBottom: 4 }}>Notes & updates</h2>
         <div className="hint" style={{ marginBottom: 12 }}>
-          Notes are permanent and timestamped. They’re never overwritten — only the author can edit their own.
+          Notes are timestamped and cannot be edited. The author can delete their own message within 24 hours.
         </div>
         <textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Add an update…" />
         <button className="btn btn-accent btn-sm" style={{ marginTop: 8 }} onClick={postNote}>Add note</button>
 
         <div style={{ marginTop: 16 }}>
           {notes.length === 0 && <div className="hint">No notes yet.</div>}
-          {notes.map((n) => (
-            <div key={n.id} className="note">
-              <div className="note-head">
-                <span className="note-author">{n.author_name}</span>
-                <span className="note-time">
-                  {formatTimestamp(n.created_at)}
-                  {n.edited_at && <span className="note-edited"> · edited</span>}
-                </span>
+          {notes.map((n) => {
+            const isDeleted = !!n.deleted_at
+            const isAuthor = n.author_id === user.id
+            const ageHours = (Date.now() - new Date(n.created_at).getTime()) / 3_600_000
+            const canDelete = isAuthor && !isDeleted && ageHours < 24
+            return (
+              <div key={n.id} className={`note ${isDeleted ? 'note-deleted' : ''}`}>
+                <div className="note-head">
+                  <span className="note-author">{n.author_name}</span>
+                  <span className="note-time">{formatTimestamp(n.created_at)}</span>
+                </div>
+                <div className="note-body">{n.body}</div>
+                {canDelete && (
+                  <button
+                    className="btn btn-ghost btn-sm note-delete-btn"
+                    onClick={() => deleteNote(n.id)}
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
-              {editingNoteId === n.id ? (
-                <>
-                  <textarea value={editNoteText} onChange={(e) => setEditNoteText(e.target.value)} />
-                  <div className="row" style={{ marginTop: 8 }}>
-                    <button className="btn btn-primary btn-sm" onClick={() => saveNoteEdit(n.id)}>Save</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setEditingNoteId(null)}>Cancel</button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="note-body">{n.body}</div>
-                  {n.author_id === user.id && (
-                    <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}
-                      onClick={() => { setEditingNoteId(n.id); setEditNoteText(n.body) }}>
-                      Edit
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
+      </div>
+
+      {/* schedule — moved to the bottom of the page per latest design */}
+      <div className="card-pad" style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Schedule</h2>
+        <div className="hint" style={{ marginBottom: 12 }}>
+          {job.start_date
+            ? `Currently ${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}.`
+            : 'Not yet scheduled.'}
+        </div>
+        <div className="date-pair">
+          <div>
+            <label>Scheduled start</label>
+            <input type="date" value={sched.start_date}
+              onChange={(e) => setSched((s) => ({ ...s, start_date: e.target.value }))} />
+          </div>
+          <div>
+            <label>Scheduled end</label>
+            <input type="date" value={sched.end_date}
+              onChange={(e) => setSched((s) => ({ ...s, end_date: e.target.value }))} />
+          </div>
+        </div>
+        <button className="btn btn-accent btn-sm" style={{ marginTop: 12 }} onClick={saveSchedule}>
+          Save schedule
+        </button>
       </div>
 
       {/* property history */}
