@@ -394,7 +394,10 @@ export default function JobDetail() {
         <textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Add an update…" />
         <button className="btn btn-accent btn-sm" style={{ marginTop: 8 }} onClick={postNote}>Add note</button>
 
-        <div style={{ marginTop: 16 }}>
+        <div
+          className={`notes-list ${notes.length >= 3 ? 'notes-list-scroll' : ''}`}
+          style={{ marginTop: 16 }}
+        >
           {notes.length === 0 && <div className="hint">No notes yet.</div>}
           {notes.map((n) => {
             const isDeleted = !!n.deleted_at
@@ -420,6 +423,11 @@ export default function JobDetail() {
             )
           })}
         </div>
+        {notes.length >= 3 && (
+          <div className="hint" style={{ marginTop: 8, fontSize: 12 }}>
+            Scroll inside the box above — {notes.length} messages.
+          </div>
+        )}
       </div>
 
       {/* schedule — moved to the bottom of the page per latest design */}

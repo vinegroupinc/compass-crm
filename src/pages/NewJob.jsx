@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../context/DataContext'
-import { useAuth } from '../context/AuthContext'
 import * as db from '../lib/db'
 import { JOB_TYPES, STATUSES } from '../lib/constants'
 import { Toast } from '../components/UI'
@@ -53,7 +52,6 @@ function ClientSelect({ value, onChange, options, onAdd }) {
 export default function NewJob() {
   const navigate = useNavigate()
   const { clients, technicians, subcontractors, refresh } = useData()
-  const { user } = useAuth()
   const [addresses, setAddresses] = useState([])
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
@@ -122,11 +120,6 @@ export default function NewJob() {
         status: form.status,
         needs_attention: form.needs_attention,
       })
-      // Seed the Notes & Updates log with access info and initial notes.
-      const access = (form.access_info || '').trim()
-      const notes = (form.crew_access || '').trim()
-      if (access) await db.addNote(job.id, `Access information: ${access}`, user.id, user.name)
-      if (notes) await db.addNote(job.id, notes, user.id, user.name)
       await refresh()
       navigate(`/job/${job.id}`)
     } catch (err) {

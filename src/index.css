@@ -325,6 +325,22 @@ a { color: inherit; text-decoration: none; }
 }
 .note-delete-btn { margin-top: 8px; color: var(--attention); }
 
+/* Notes list: by default grows freely. Once 3+ notes exist, becomes a
+   scrollable inner box so the job page doesn't get a mile long. */
+.notes-list-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  background: #fafbfc;
+}
+.notes-list-scroll .note:first-child { padding-top: 4px; border-top: none; }
+.notes-list-scroll .note:last-child { padding-bottom: 4px; }
+@media (max-width: 759px) {
+  .notes-list-scroll { max-height: 340px; }
+}
+
 /* ---------- address autocomplete ---------- */
 .address-ac { position: relative; }
 .address-ac-menu {
