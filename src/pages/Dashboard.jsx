@@ -6,41 +6,20 @@ import {
   HIDDEN_FROM_DASHBOARD,
   ACTIVE_STATUS_ORDER,
 } from '../lib/constants'
-import { formatDate, laToday } from '../lib/time'
+import { laToday } from '../lib/time'
 
-// Full job card used in the status sections — keeps all metadata.
-function JobCard({ job, flag }) {
-  return (
-    <Link to={`/job/${job.id}`} className={`job-card ${flag ? 'flag-' + flag : ''}`}>
-      <div className="badges" style={{ marginBottom: 8 }}>
-        <StatusBadge status={job.status} />
-        {job.needs_attention && <span className="badge chip-attention">⚠ Needs Attention</span>}
-        <span className="badge badge-soft">{job.job_type}</span>
-      </div>
-      <div className="job-title">
-        {job.street_address}{job.unit ? <span style={{ color: 'var(--ink-faint)' }}> · Unit {job.unit}</span> : null}
-      </div>
-      <div className="job-meta">
-        {job.management_company && <span>🏢 {job.management_company}</span>}
-        {(() => {
-          const tech = (job.main_techs && job.main_techs.length > 0) ? job.main_techs.join(', ') : job.main_tech
-          return tech ? <span>🔧 {tech}</span> : null
-        })()}
-        {job.start_date && <span>📅 {formatDate(job.start_date)}{job.end_date ? ` – ${formatDate(job.end_date)}` : ''}</span>}
-      </div>
-    </Link>
-  )
-}
-
-// Compact card used inside the Planner column. Drops mgmt/tech/dates;
-// shows only status, type, address, and the assigned task(s).
-function PlannerCard({ job, userId }) {
+// Compact card used everywhere on the dashboard. Drops mgmt/tech/dates;
+// shows status pill, job type, address, and (optionally) tasks assigned to
+// the current user. Used in Planner, Needs Attention, and every status window.
+function CompactCard({ job, flag, userId }) {
   const today = laToday()
-  const tasks = (job.tasks || []).filter(
-    (t) => t.assigned_user_id === userId && !t.done && (!t.due_date || t.due_date <= today)
-  )
+  const tasks = userId
+    ? (job.tasks || []).filter(
+        (t) => t.assigned_user_id === userId && !t.done && (!t.due_date || t.due_date <= today)
+      )
+    : []
   return (
-    <Link to={`/job/${job.id}`} className="job-card job-card-compact flag-mine">
+    <Link to={`/job/${job.id}`} className={`job-card job-card-compact ${flag ? 'flag-' + flag : ''}`}>
       <div className="badges" style={{ marginBottom: 6 }}>
         <StatusBadge status={job.status} />
         <span className="badge badge-soft">{job.job_type}</span>
@@ -62,21 +41,6 @@ function PlannerCard({ job, userId }) {
   )
 }
 
-function Section({ railClass, title, count, scroll, children }) {
-  return (
-    <section className="section">
-      <div className="section-head">
-        <span className={`section-rail ${railClass}`} />
-        <h2>{title}</h2>
-        <span className="section-count">{count}</span>
-      </div>
-      <div className={scroll ? 'section-scroll' : ''}>
-        {children}
-      </div>
-    </section>
-  )
-}
-
 export default function Dashboard() {
   const { jobs, loading, error } = useData()
   const { user } = useAuth()
@@ -86,8 +50,6 @@ export default function Dashboard() {
 
   const active = jobs.filter((j) => !HIDDEN_FROM_DASHBOARD.includes(j.status))
   const today = laToday()
-
-  // A task is "due now" if it has no due date OR its due date is on/before today.
   const isDueNow = (t) => !t.due_date || t.due_date <= today
 
   // Planner: jobs with an open task assigned to me that's due now.
@@ -97,19 +59,19 @@ export default function Dashboard() {
     )
   )
 
-  // Needs Attention: jobs flagged. (Independent of Planner — a job can appear
-  // in both Planner and Needs Attention, and also still in its status group.)
+  // Needs Attention: jobs flagged as such. Independent of Planner.
   const attention = active.filter((j) => j.needs_attention)
 
-  // Status groups now show EVERY active job in that status, including those
-  // also in Planner / Needs Attention. No de-duplication.
+  // Every active status, always shown — even empty ones — so the dashboard
+  // layout is consistent day-to-day. Jobs are not de-duplicated; a job in
+  // Planner / Needs Attention also still shows in its status window.
   const byStatus = ACTIVE_STATUS_ORDER.map((status) => ({
     status,
     jobs: active.filter((j) => j.status === status),
-  })).filter((g) => g.jobs.length > 0)
+  }))
 
   const nothing = active.length === 0
-  // Two-column top grid when BOTH Planner and Needs Attention have items
+  // Split top into 2 columns only when BOTH have items
   const bothTop = myJobs.length > 0 && attention.length > 0
 
   return (
@@ -124,59 +86,84 @@ export default function Dashboard() {
 
       {nothing && <div className="empty">No active jobs yet. Tap "New Job" to add the first one.</div>}
 
-      {/* Top row: Planner + Needs Attention. Side-by-side when both have items,
-          full-width when only one has items. */}
+      {/* PLANNER SECTION — header, then Planner card + Needs Attention card
+          side-by-side (or single full-width when only one has items). */}
       {(myJobs.length > 0 || attention.length > 0) && (
-        <div className={bothTop ? 'top-grid' : ''}>
-          {myJobs.length > 0 && (
-            <Section
-              railClass="rail-mine"
-              title="Planner"
-              count={myJobs.length}
-              scroll={myJobs.length >= 2}
-            >
-              <div className="planner-stack">
-                {myJobs.map((j) => (
-                  <PlannerCard key={j.id} job={j} userId={user.id} />
-                ))}
-              </div>
-            </Section>
-          )}
+        <section className="planner-section">
+          <div className="section-head">
+            <span className="section-rail rail-mine" />
+            <h2>Planner</h2>
+          </div>
 
-          {attention.length > 0 && (
-            <Section
-              railClass="rail-attention"
-              title="Needs Attention"
-              count={attention.length}
-              scroll={attention.length >= 3}
-            >
-              <div className="job-grid">
-                {attention.map((j) => (
-                  <JobCard key={j.id} job={j} flag="attention" />
-                ))}
+          <div className={bothTop ? 'planner-grid' : ''}>
+            {myJobs.length > 0 && (
+              <div className="planner-window">
+                <div className={`planner-window-body ${myJobs.length >= 2 ? 'planner-window-scroll' : ''}`}>
+                  <div className="planner-stack">
+                    {myJobs.map((j) => (
+                      <CompactCard key={j.id} job={j} flag="mine" userId={user.id} />
+                    ))}
+                  </div>
+                </div>
               </div>
-            </Section>
-          )}
-        </div>
+            )}
+
+            {attention.length > 0 && (
+              <div className="planner-window attention-window">
+                <div className="attention-banner">
+                  <span className="attention-banner-icon">🚨</span>
+                  <span>Items that need immediate attention</span>
+                </div>
+                <div className={`planner-window-body ${attention.length >= 3 ? 'planner-window-scroll' : ''}`}>
+                  <div className="planner-stack">
+                    {attention.map((j) => (
+                      <CompactCard key={j.id} job={j} flag="attention" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
-      {/* Status groups — each scrolls past 3 jobs. Jobs in Planner / Needs
-          Attention also still appear here in their status. */}
-      {byStatus.map((group) => (
-        <Section
-          key={group.status}
-          railClass=""
-          title={group.status}
-          count={group.jobs.length}
-          scroll={group.jobs.length >= 3}
-        >
-          <div className="job-grid two">
-            {group.jobs.map((j) => (
-              <JobCard key={j.id} job={j} />
-            ))}
-          </div>
-        </Section>
-      ))}
+      {/* SEPARATOR + ALL ACTIVE JOBS HEADER */}
+      <div className="all-jobs-divider" />
+      <div className="all-jobs-header">
+        <h2>All Active Jobs</h2>
+        <span className="hint">Every active job, grouped by status.</span>
+      </div>
+
+      {/* Status windows — 2 per row on desktop, 1 per row on mobile.
+          Every status renders, even empty ones. */}
+      <div className="status-grid">
+        {byStatus.map((group) => {
+          const isEmpty = group.jobs.length === 0
+          return (
+            <section
+              key={group.status}
+              className={`status-window ${isEmpty ? 'status-window-empty' : ''}`}
+            >
+              <div className="section-head">
+                <span className="section-rail" />
+                <h3>{group.status}</h3>
+                <span className="section-count">{group.jobs.length}</span>
+              </div>
+              <div className={`status-window-body ${group.jobs.length >= 3 ? 'status-window-scroll' : ''}`}>
+                {isEmpty ? (
+                  <div className="status-window-none">None</div>
+                ) : (
+                  <div className="planner-stack">
+                    {group.jobs.map((j) => (
+                      <CompactCard key={j.id} job={j} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          )
+        })}
+      </div>
     </>
   )
 }

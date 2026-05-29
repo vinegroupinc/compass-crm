@@ -172,42 +172,118 @@ a { color: inherit; text-decoration: none; }
 .section { margin-bottom: 26px; }
 .section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .section-head h2 { font-size: 18px; }
+.section-head h3 { font-size: 15px; margin: 0; font-weight: 700; }
 .section-count { font-size: 12px; font-weight: 700; color: var(--ink-faint); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
 .section-rail { width: 4px; height: 20px; border-radius: 2px; background: var(--ink-faint); }
 
-/* Each dashboard section becomes a scrollable inner box once it exceeds its
-   threshold. Keeps the dashboard a reasonable height even with many jobs. */
-.section-scroll {
-  max-height: 420px;
-  overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 12px;
-  background: #fafbfc;
-}
-@media (max-width: 759px) {
-  .section-scroll { max-height: 360px; padding: 10px; }
-}
+/* -------- Planner section (top of dashboard) -------- */
+.planner-section { margin-bottom: 26px; }
 
-/* Two-column top row used when BOTH Planner and Needs Attention have items.
-   Stacks on mobile. The section element itself contains its own scroll, so
-   the columns can have different scroll heights without affecting each other. */
-.top-grid {
+/* Side-by-side when both Planner and Attention have items. Stacks on mobile. */
+.planner-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-bottom: 4px;
+  gap: 16px;
 }
-.top-grid .section { margin-bottom: 0; }
 @media (max-width: 859px) {
-  .top-grid { grid-template-columns: 1fr; gap: 4px; }
+  .planner-grid { grid-template-columns: 1fr; }
 }
 
-/* Planner uses a single-column stack of compact cards (not the wider job-grid)
-   so each card fits the narrower top-grid column comfortably. */
+/* Each window inside the Planner section is a self-contained card. */
+.planner-window {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.planner-window-body { padding: 14px; }
+.planner-window-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+}
+@media (max-width: 759px) {
+  .planner-window-scroll { max-height: 300px; }
+}
+
+/* Banner at the top of the Attention window (instead of a "Needs Attention"
+   header). Bright background + siren icon so it reads urgent. */
+.attention-window { border-color: #f3c7c7; }
+.attention-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--attention-soft);
+  border-bottom: 1px solid #f3c7c7;
+  color: var(--attention);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+.attention-banner-icon { font-size: 16px; }
+
+/* Stack of compact cards inside any dashboard window. */
 .planner-stack { display: flex; flex-direction: column; gap: 10px; }
-.job-card-compact { padding: 14px 16px; }
-.job-card-compact .job-title { margin-top: 2px; }
+
+/* -------- Divider + "All Active Jobs" header -------- */
+.all-jobs-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 8px 0 18px;
+}
+.all-jobs-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.all-jobs-header h2 {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* -------- Status windows grid -------- */
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 759px) {
+  .status-grid { grid-template-columns: 1fr; }
+}
+
+.status-window {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+.status-window .section-head { margin-bottom: 10px; }
+.status-window-body {}
+.status-window-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+}
+.status-window-empty {
+  opacity: 0.55;
+  background: transparent;
+  box-shadow: none;
+}
+.status-window-none {
+  font-size: 13px;
+  color: var(--ink-faint);
+  font-style: italic;
+  padding: 8px 4px;
+}
+
+@media (max-width: 759px) {
+  .status-window-scroll { max-height: 300px; }
+}
 .rail-mine { background: var(--mine); }
 .rail-attention { background: var(--attention); }
 .rail-priority { background: var(--priority); }
@@ -224,6 +300,8 @@ a { color: inherit; text-decoration: none; }
 .job-card.flag-attention { border-left: 4px solid var(--attention); }
 .job-card.flag-priority { border-left: 4px solid var(--priority); }
 .job-card.flag-mine { border-left: 4px solid var(--mine); }
+.job-card-compact { padding: 14px 16px; }
+.job-card-compact .job-title { margin-top: 2px; font-size: 15px; }
 
 .job-title { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 600; margin-bottom: 4px; }
 .job-meta { font-size: 13px; color: var(--ink-soft); display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
