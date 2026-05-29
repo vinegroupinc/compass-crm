@@ -240,7 +240,7 @@ export default function JobDetail() {
             ? `Currently ${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}.`
             : 'No dates set yet.'}
         </div>
-        <div className="form-grid" style={{ gap: 14 }}>
+        <div className="date-pair">
           <div>
             <label>Scheduled start</label>
             <input type="date" value={sched.start_date}

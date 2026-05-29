@@ -186,24 +186,6 @@ export default function NewJob() {
             />
           </div>
 
-          <div>
-            <label>Status</label>
-            <select value={form.status} onChange={(e) => set('status', e.target.value)}>
-              {STATUSES.map((s) => <option key={s}>{s}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label>Scheduled start</label>
-            <input type="date" value={form.start_date}
-              onChange={(e) => set('start_date', e.target.value)} />
-          </div>
-          <div>
-            <label>Scheduled end</label>
-            <input type="date" value={form.end_date}
-              onChange={(e) => set('end_date', e.target.value)} />
-          </div>
-
           <div className="field-full">
             <ContactMultiSelect
               label="Subcontractor(s)"
@@ -214,6 +196,26 @@ export default function NewJob() {
               onAddNew={addSub}
               placeholder="e.g. Zahava Electrical, Lubov Plumbing"
             />
+          </div>
+
+          <div>
+            <label>Status</label>
+            <select value={form.status} onChange={(e) => set('status', e.target.value)}>
+              {STATUSES.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+
+          <div className="field-full date-pair">
+            <div>
+              <label>Scheduled start</label>
+              <input type="date" value={form.start_date}
+                onChange={(e) => set('start_date', e.target.value)} />
+            </div>
+            <div>
+              <label>Scheduled end</label>
+              <input type="date" value={form.end_date}
+                onChange={(e) => set('end_date', e.target.value)} />
+            </div>
           </div>
 
           <div className="field-full">
