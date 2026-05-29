@@ -195,7 +195,7 @@ export default function JobDetail() {
           </h1>
           <div className="hint job-schedule-row">
             {job.start_date
-              ? `${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}`
+              ? `Scheduled ${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}`
               : 'Not yet scheduled'}
           </div>
         </div>
