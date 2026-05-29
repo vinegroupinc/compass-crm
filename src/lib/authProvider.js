@@ -37,14 +37,20 @@ export const authProvider = {
   // Returns a normalized user object the app understands, regardless of backend.
   normalizeUser(session) {
     if (!session?.user) return null
+    const u = session.user
+    // An invited user who has never signed in won't have last_sign_in_at set.
+    // We force them through the set-password flow before they can use the app.
+    // Recovery (password reset) sessions are detected separately via URL hash
+    // in App.jsx, and won't have this flag because the user has previous logins.
+    const neverSignedIn = !u.last_sign_in_at
     return {
-      id: session.user.id,
-      email: session.user.email,
-      // display name falls back to the part before @ if no metadata name set
+      id: u.id,
+      email: u.email,
       name:
-        session.user.user_metadata?.full_name ||
-        session.user.email?.split('@')[0] ||
+        u.user_metadata?.full_name ||
+        u.email?.split('@')[0] ||
         'User',
+      needsPasswordSetup: neverSignedIn,
     }
   },
 }
