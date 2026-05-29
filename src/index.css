@@ -174,6 +174,40 @@ a { color: inherit; text-decoration: none; }
 .section-head h2 { font-size: 18px; }
 .section-count { font-size: 12px; font-weight: 700; color: var(--ink-faint); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
 .section-rail { width: 4px; height: 20px; border-radius: 2px; background: var(--ink-faint); }
+
+/* Each dashboard section becomes a scrollable inner box once it exceeds its
+   threshold. Keeps the dashboard a reasonable height even with many jobs. */
+.section-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: #fafbfc;
+}
+@media (max-width: 759px) {
+  .section-scroll { max-height: 360px; padding: 10px; }
+}
+
+/* Two-column top row used when BOTH Planner and Needs Attention have items.
+   Stacks on mobile. The section element itself contains its own scroll, so
+   the columns can have different scroll heights without affecting each other. */
+.top-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 4px;
+}
+.top-grid .section { margin-bottom: 0; }
+@media (max-width: 859px) {
+  .top-grid { grid-template-columns: 1fr; gap: 4px; }
+}
+
+/* Planner uses a single-column stack of compact cards (not the wider job-grid)
+   so each card fits the narrower top-grid column comfortably. */
+.planner-stack { display: flex; flex-direction: column; gap: 10px; }
+.job-card-compact { padding: 14px 16px; }
+.job-card-compact .job-title { margin-top: 2px; }
 .rail-mine { background: var(--mine); }
 .rail-attention { background: var(--attention); }
 .rail-priority { background: var(--priority); }
