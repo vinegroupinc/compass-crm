@@ -6,6 +6,7 @@ import * as db from '../lib/db'
 import { JOB_TYPES, STATUSES } from '../lib/constants'
 import { Toast } from '../components/UI'
 import { ContactMultiSelect } from '../components/ContactMultiSelect'
+import { AddressAutocomplete } from '../components/AddressAutocomplete'
 
 // A single-select that includes an inline "+ Add new…" option for clients.
 function ClientSelect({ value, onChange, options, onAdd }) {
@@ -60,6 +61,7 @@ export default function NewJob() {
   const [form, setForm] = useState({
     street_address: '',
     unit: '',
+    no_unit: false,
     management_company: '',
     unit_manager: '',
     job_type: 'Turn',
@@ -95,6 +97,9 @@ export default function NewJob() {
   async function submit(e) {
     e.preventDefault()
     if (!form.street_address.trim()) { setToast('Street address is required'); return }
+    if (!form.no_unit && !form.unit.trim()) {
+      setToast('Enter a unit number, or check “No Unit #”'); return
+    }
     setBusy(true)
     try {
       // We also write the legacy main_tech / subcontractors text fields so
@@ -102,7 +107,7 @@ export default function NewJob() {
       // new arrays.
       const job = await db.createJob({
         street_address: form.street_address.trim(),
-        unit: form.unit.trim() || null,
+        unit: form.no_unit ? null : (form.unit.trim() || null),
         management_company: form.management_company,
         unit_manager: form.unit_manager,
         job_type: form.job_type,
@@ -137,29 +142,42 @@ export default function NewJob() {
         <div className="form-grid">
           <div className="field-full">
             <label>Property address (street) *</label>
-            <input
-              list="known-addresses"
+            <AddressAutocomplete
               value={form.street_address}
-              onChange={(e) => set('street_address', e.target.value)}
+              onChange={(v) => set('street_address', v)}
+              knownAddresses={addresses}
               placeholder="123 Maple Ave"
-              required
             />
-            <datalist id="known-addresses">
-              {addresses.map((a) => <option key={a} value={a} />)}
-            </datalist>
             <div className="hint">Property history groups by this street address. Keep unit number separate below.</div>
           </div>
 
-          <div>
-            <label>Unit # (optional)</label>
-            <input value={form.unit} onChange={(e) => set('unit', e.target.value)} placeholder="e.g. 4B" />
-          </div>
-
-          <div>
-            <label>Job type</label>
-            <select value={form.job_type} onChange={(e) => set('job_type', e.target.value)}>
-              {JOB_TYPES.map((t) => <option key={t}>{t}</option>)}
-            </select>
+          <div className="field-full unit-row">
+            <label className="unit-row-check" title="Check if this property has no unit number">
+              <input
+                type="checkbox"
+                checked={form.no_unit}
+                onChange={(e) => {
+                  const checked = e.target.checked
+                  setForm((f) => ({ ...f, no_unit: checked, unit: checked ? '' : f.unit }))
+                }}
+              />
+              <span>No Unit #</span>
+            </label>
+            <div>
+              <label>Unit # {form.no_unit ? '' : '*'}</label>
+              <input
+                value={form.unit}
+                onChange={(e) => set('unit', e.target.value)}
+                placeholder={form.no_unit ? 'Not applicable' : 'e.g. 4B'}
+                disabled={form.no_unit}
+              />
+            </div>
+            <div>
+              <label>Job type</label>
+              <select value={form.job_type} onChange={(e) => set('job_type', e.target.value)}>
+                {JOB_TYPES.map((t) => <option key={t}>{t}</option>)}
+              </select>
+            </div>
           </div>
 
           <ClientSelect

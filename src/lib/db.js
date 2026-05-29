@@ -143,19 +143,26 @@ export async function getJob(id) {
   return data
 }
 
-// Jobs that share the same street address (Property History). Unit ignored.
+// Jobs that share the same property as the given address. Matches on the
+// NORMALIZED form so abbreviation differences ("W 84th St" vs "West 84th
+// Street") still group together. Fetches all and filters client-side, fine
+// at this scale.
 export async function getJobsByAddress(streetAddress) {
+  const { normalizeAddress } = await import('./address.js')
+  const key = normalizeAddress(streetAddress)
+  if (!key) return []
   const { data, error } = await supabase
     .from('jobs')
     .select('*')
-    .eq('street_address', streetAddress)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) throw error
-  return data
+  return (data || []).filter((j) => normalizeAddress(j.street_address) === key)
 }
 
 // Distinct street addresses for the autocomplete on the new-job form.
+// Returns the original strings as users typed them — useful for display and
+// for letting people pick the canonical version of a property already on file.
 export async function getKnownAddresses() {
   const { data, error } = await supabase
     .from('jobs')
