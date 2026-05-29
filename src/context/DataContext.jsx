@@ -7,8 +7,7 @@ const DataCtx = createContext(null)
 
 export function DataProvider({ children }) {
   const [jobs, setJobs] = useState([])
-  const [mgmtList, setMgmtList] = useState([])
-  const [techList, setTechList] = useState([])
+  const [contacts, setContacts] = useState([])
   const [team, setTeam] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -16,15 +15,13 @@ export function DataProvider({ children }) {
   const refresh = useCallback(async () => {
     try {
       setError('')
-      const [j, m, t, tm] = await Promise.all([
+      const [j, c, tm] = await Promise.all([
         db.getJobs(),
-        db.getList('management_company'),
-        db.getList('tech'),
+        db.getContacts(),
         db.getTeamMembers(),
       ])
       setJobs(j)
-      setMgmtList(m)
-      setTechList(t)
+      setContacts(c)
       setTeam(tm)
     } catch (e) {
       setError(e?.message || 'Could not load data.')
@@ -37,7 +34,11 @@ export function DataProvider({ children }) {
     refresh()
   }, [refresh])
 
-  // Active jobs whose status hasn't changed in >= 7 days (LA time).
+  // Derived filtered lists per type — handy for dropdowns.
+  const clients = contacts.filter((c) => c.is_client)
+  const technicians = contacts.filter((c) => c.is_technician)
+  const subcontractors = contacts.filter((c) => c.is_subcontractor)
+
   const staleJobs = jobs.filter(
     (j) =>
       !HIDDEN_FROM_DASHBOARD.includes(j.status) &&
@@ -46,7 +47,10 @@ export function DataProvider({ children }) {
 
   return (
     <DataCtx.Provider
-      value={{ jobs, mgmtList, techList, team, loading, error, refresh, staleJobs }}
+      value={{
+        jobs, contacts, clients, technicians, subcontractors,
+        team, loading, error, refresh, staleJobs,
+      }}
     >
       {children}
     </DataCtx.Provider>

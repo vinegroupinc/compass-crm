@@ -27,7 +27,10 @@ function JobCard({ job, flag, showTasksFor }) {
       </div>
       <div className="job-meta">
         {job.management_company && <span>🏢 {job.management_company}</span>}
-        {job.main_tech && <span>🔧 {job.main_tech}</span>}
+        {(() => {
+          const tech = (job.main_techs && job.main_techs.length > 0) ? job.main_techs.join(', ') : job.main_tech
+          return tech ? <span>🔧 {tech}</span> : null
+        })()}
         {job.start_date && <span>📅 {formatDate(job.start_date)}{job.end_date ? ` – ${formatDate(job.end_date)}` : ''}</span>}
       </div>
       {myOpenTasks.length > 0 && (

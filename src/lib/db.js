@@ -1,7 +1,88 @@
 // db.js — all database access in one place.
 import { supabase } from './supabaseClient'
 
-/* ---------------- SAVED LISTS (management companies, techs) ------------- */
+/* ---------------- CONTACTS (unified clients/technicians/subs) -------- */
+
+export async function getContacts() {
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('*')
+    .order('name', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function addContact({ name, is_client = false, is_technician = false, is_subcontractor = false }) {
+  // If a contact with the same name exists, merge type flags rather than fail.
+  const cleanName = name.trim()
+  const { data: existing } = await supabase
+    .from('contacts')
+    .select('*')
+    .eq('name', cleanName)
+    .maybeSingle()
+  if (existing) {
+    const { data, error } = await supabase
+      .from('contacts')
+      .update({
+        is_client: existing.is_client || is_client,
+        is_technician: existing.is_technician || is_technician,
+        is_subcontractor: existing.is_subcontractor || is_subcontractor,
+      })
+      .eq('id', existing.id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }
+  const { data, error } = await supabase
+    .from('contacts')
+    .insert({ name: cleanName, is_client, is_technician, is_subcontractor })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateContact(id, patch) {
+  const { data, error } = await supabase
+    .from('contacts')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteContact(id) {
+  const { error } = await supabase.from('contacts').delete().eq('id', id)
+  if (error) throw error
+}
+
+// All non-deleted jobs that reference a given contact name in any role.
+// Matches across management_company, the new main_techs[] array, the legacy
+// main_tech string, and the new subcontractor_names[] array.
+export async function getJobsForContactName(name) {
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('*')
+    .is('deleted_at', null)
+    .or(
+      [
+        `management_company.eq.${name}`,
+        `main_tech.eq.${name}`,
+        `main_techs.cs.{"${name}"}`,
+        `subcontractor_names.cs.{"${name}"}`,
+      ].join(',')
+    )
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+/* ---------------- LEGACY SAVED LISTS (kept for back-compat) ----------- */
+// The old list APIs are still here so any unconverted code keeps working,
+// but the Contacts page is the canonical UI now.
 
 export async function getList(kind) {
   // kind = 'management_company' | 'tech'

@@ -41,9 +41,16 @@ function scoreJob(job, query) {
   check('management_company', job.management_company)
   check('unit_manager', job.unit_manager)
   check('main_tech', job.main_tech)
+  // New array fields — concatenate so includes() works
+  if (job.main_techs && job.main_techs.length > 0) {
+    check('main_tech', job.main_techs.join(' '))
+  }
+  check('subcontractors', job.subcontractors)
+  if (job.subcontractor_names && job.subcontractor_names.length > 0) {
+    check('subcontractors', job.subcontractor_names.join(' '))
+  }
   check('job_type', job.job_type)
   check('status', job.status)
-  check('subcontractors', job.subcontractors)
   check('access_info', job.access_info)
   check('crew_access', job.crew_access)
   // Tasks (text only — assignee names are excluded per spec)
@@ -144,7 +151,10 @@ export default function Search() {
                 </div>
                 <div className="job-meta">
                   {job.management_company && <span>🏢 {job.management_company}</span>}
-                  {job.main_tech && <span>🔧 {job.main_tech}</span>}
+                  {(() => {
+                    const tech = (job.main_techs && job.main_techs.length > 0) ? job.main_techs.join(', ') : job.main_tech
+                    return tech ? <span>🔧 {tech}</span> : null
+                  })()}
                   {job.start_date && <span>📅 {formatDate(job.start_date)}</span>}
                 </div>
                 {matchedFields.length > 0 && (

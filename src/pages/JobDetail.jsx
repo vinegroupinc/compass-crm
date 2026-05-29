@@ -4,6 +4,7 @@ import * as db from '../lib/db'
 import { useData } from '../context/DataContext'
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge, Toast, Modal } from '../components/UI'
+import { ContactMultiSelect } from '../components/ContactMultiSelect'
 import { JOB_TYPES, STATUSES } from '../lib/constants'
 import { formatTimestamp, formatDate, daysSinceTimestamp, laToday } from '../lib/time'
 
@@ -13,7 +14,7 @@ const USERS_NOTE =
 export default function JobDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { mgmtList, techList, team, refresh } = useData()
+  const { clients, technicians, subcontractors, team, refresh } = useData()
   const { user } = useAuth()
 
   const [job, setJob] = useState(null)
@@ -35,7 +36,19 @@ export default function JobDetail() {
     try {
       const j = await db.getJob(id)
       setJob(j)
-      setDraft(j)
+      // Normalize array fields so the edit form can read them directly even
+      // for jobs created before the multi-select migration.
+      const splitOrEmpty = (s) =>
+        s ? s.split(',').map((x) => x.trim()).filter(Boolean) : []
+      setDraft({
+        ...j,
+        main_techs: (j.main_techs && j.main_techs.length > 0)
+          ? j.main_techs
+          : splitOrEmpty(j.main_tech),
+        subcontractor_names: (j.subcontractor_names && j.subcontractor_names.length > 0)
+          ? j.subcontractor_names
+          : splitOrEmpty(j.subcontractors),
+      })
       setSched({
         start_date: j.start_date || '',
         end_date: j.end_date || '',
@@ -56,14 +69,18 @@ export default function JobDetail() {
   async function saveEdits() {
     const statusChanged = draft.status !== job.status
     try {
+      const main_techs = draft.main_techs || []
+      const subcontractor_names = draft.subcontractor_names || []
       await db.updateJob(job.id, {
         street_address: draft.street_address.trim(),
         unit: draft.unit?.trim() || null,
         management_company: draft.management_company,
         unit_manager: draft.unit_manager,
         job_type: draft.job_type,
-        main_tech: draft.main_tech,
-        subcontractors: draft.subcontractors,
+        main_techs,
+        main_tech: main_techs.join(', ') || null,                       // legacy mirror
+        subcontractor_names,
+        subcontractors: subcontractor_names.join(', ') || null,         // legacy mirror
         access_info: draft.access_info,
         crew_access: draft.crew_access,
         status: draft.status,
@@ -189,7 +206,15 @@ export default function JobDetail() {
             ⚠ {job.needs_attention ? 'Clear Attention' : 'Needs Attention'}
           </button>
           {!editing && (
-            <button className="btn btn-ghost btn-sm" onClick={() => { setDraft(job); setEditing(true) }}>Edit</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => {
+              const splitOrEmpty = (s) => s ? s.split(',').map((x) => x.trim()).filter(Boolean) : []
+              setDraft({
+                ...job,
+                main_techs: (job.main_techs && job.main_techs.length > 0) ? job.main_techs : splitOrEmpty(job.main_tech),
+                subcontractor_names: (job.subcontractor_names && job.subcontractor_names.length > 0) ? job.subcontractor_names : splitOrEmpty(job.subcontractors),
+              })
+              setEditing(true)
+            }}>Edit</button>
           )}
         </div>
       </div>
@@ -238,9 +263,17 @@ export default function JobDetail() {
           <div className="job-meta" style={{ fontSize: 14, gap: '10px 24px' }}>
             <span>🏢 {job.management_company || '—'}</span>
             <span>👤 Manager: {job.unit_manager || '—'}</span>
-            <span>🔧 {job.main_tech || '—'}</span>
+            <span>🔧 Vine Tech: {
+              (job.main_techs && job.main_techs.length > 0)
+                ? job.main_techs.join(', ')
+                : (job.main_tech || '—')
+            }</span>
             <span>📅 {job.start_date ? `${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}` : '—'}</span>
-            <span style={{ flexBasis: '100%' }}>🧰 Subs: {job.subcontractors || '—'}</span>
+            <span style={{ flexBasis: '100%' }}>🧰 Subs: {
+              (job.subcontractor_names && job.subcontractor_names.length > 0)
+                ? job.subcontractor_names.join(', ')
+                : (job.subcontractors || '—')
+            }</span>
             <span style={{ flexBasis: '100%' }}>🔑 Access: {job.access_info || '—'}</span>
             <span style={{ flexBasis: '100%' }}>📝 Notes: {job.crew_access || '—'}</span>
           </div>
@@ -257,25 +290,37 @@ export default function JobDetail() {
                 <select value={d.job_type} onChange={(e) => setDraft({ ...d, job_type: e.target.value })}>
                   {JOB_TYPES.map((t) => <option key={t}>{t}</option>)}
                 </select></div>
-              <div><label>Management company</label>
+              <div><label>Client (Management Company)</label>
                 <select value={d.management_company || ''} onChange={(e) => setDraft({ ...d, management_company: e.target.value })}>
                   <option value="">— Select —</option>
-                  {mgmtList.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                  {clients.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select></div>
               <div><label>Manager</label>
                 <input value={d.unit_manager || ''} onChange={(e) => setDraft({ ...d, unit_manager: e.target.value })} /></div>
-              <div><label>Main tech</label>
-                <select value={d.main_tech || ''} onChange={(e) => setDraft({ ...d, main_tech: e.target.value })}>
-                  <option value="">— Select —</option>
-                  {techList.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                </select></div>
+              <div className="field-full">
+                <ContactMultiSelect
+                  label="Vine Tech"
+                  value={d.main_techs || []}
+                  onChange={(v) => setDraft({ ...d, main_techs: v })}
+                  options={technicians}
+                  onAddNew={async (name) => { await db.addContact({ name, is_technician: true }); await refresh() }}
+                  placeholder="Search or add a Vine Tech…"
+                />
+              </div>
               <div><label>Status</label>
                 <select value={d.status} onChange={(e) => setDraft({ ...d, status: e.target.value })}>
                   {STATUSES.map((s) => <option key={s}>{s}</option>)}
                 </select></div>
-              <div className="field-full"><label>Subcontractor(s)</label>
-                <input value={d.subcontractors || ''} onChange={(e) => setDraft({ ...d, subcontractors: e.target.value })}
-                  placeholder="e.g. Zahava Electrical, Lubov Plumbing" /></div>
+              <div className="field-full">
+                <ContactMultiSelect
+                  label="Subcontractor(s)"
+                  value={d.subcontractor_names || []}
+                  onChange={(v) => setDraft({ ...d, subcontractor_names: v })}
+                  options={subcontractors}
+                  onAddNew={async (name) => { await db.addContact({ name, is_subcontractor: true }); await refresh() }}
+                  placeholder="e.g. Zahava Electrical, Lubov Plumbing"
+                />
+              </div>
               <div className="field-full"><label>Access Information</label>
                 <textarea value={d.access_info || ''} onChange={(e) => setDraft({ ...d, access_info: e.target.value })}
                   placeholder="Lockbox code, gate code, parking, where to find keys…" /></div>

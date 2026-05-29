@@ -5,10 +5,10 @@ import { useAuth } from '../context/AuthContext'
 import * as db from '../lib/db'
 import { JOB_TYPES, STATUSES } from '../lib/constants'
 import { Toast } from '../components/UI'
+import { ContactMultiSelect } from '../components/ContactMultiSelect'
 
-// A select that includes an inline "+ Add new…" option. Picking it reveals a
-// small text box; saving adds the item to the shared list AND selects it.
-function SelectWithAdd({ label, hint, value, onChange, items, onAdd, placeholder }) {
+// A single-select that includes an inline "+ Add new…" option for clients.
+function ClientSelect({ value, onChange, options, onAdd }) {
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -17,19 +17,13 @@ function SelectWithAdd({ label, hint, value, onChange, items, onAdd, placeholder
     const name = text.trim()
     if (!name) return
     setBusy(true)
-    try {
-      await onAdd(name)     // persists to the list
-      onChange(name)        // selects the new value
-      setText('')
-      setAdding(false)
-    } finally {
-      setBusy(false)
-    }
+    try { await onAdd(name); onChange(name); setText(''); setAdding(false) }
+    finally { setBusy(false) }
   }
 
   return (
     <div>
-      <label>{label}</label>
+      <label>Client (Management Company)</label>
       {!adding ? (
         <select
           value={value}
@@ -39,30 +33,25 @@ function SelectWithAdd({ label, hint, value, onChange, items, onAdd, placeholder
           }}
         >
           <option value="">— Select —</option>
-          {items.map((it) => <option key={it.id} value={it.name}>{it.name}</option>)}
-          <option value="__add__">+ Add new…</option>
+          {options.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+          <option value="__add__">+ Add new client…</option>
         </select>
       ) : (
         <div className="row" style={{ gap: 8 }}>
-          <input
-            autoFocus
-            placeholder={placeholder}
-            value={text}
+          <input autoFocus placeholder="New client name" value={text}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), save())}
-          />
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), save())} />
           <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={save}>Save</button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setAdding(false); setText('') }}>✕</button>
         </div>
       )}
-      {hint && <div className="hint">{hint}</div>}
     </div>
   )
 }
 
 export default function NewJob() {
   const navigate = useNavigate()
-  const { mgmtList, techList, refresh } = useData()
+  const { clients, technicians, subcontractors, refresh } = useData()
   const { user } = useAuth()
   const [addresses, setAddresses] = useState([])
   const [toast, setToast] = useState('')
@@ -76,8 +65,8 @@ export default function NewJob() {
     job_type: 'Turn',
     start_date: '',
     end_date: '',
-    main_tech: '',
-    subcontractors: '',
+    main_techs: [],          // array of names
+    subcontractor_names: [], // array of names
     access_info: '',
     crew_access: '',
     status: 'New Lead',
@@ -90,12 +79,16 @@ export default function NewJob() {
 
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })) }
 
-  async function addMgmt(name) {
-    await db.addListItem('management_company', name)
+  async function addClient(name) {
+    await db.addContact({ name, is_client: true })
     await refresh()
   }
-  async function addTech(name) {
-    await db.addListItem('tech', name)
+  async function addTechnician(name) {
+    await db.addContact({ name, is_technician: true })
+    await refresh()
+  }
+  async function addSub(name) {
+    await db.addContact({ name, is_subcontractor: true })
     await refresh()
   }
 
@@ -104,23 +97,31 @@ export default function NewJob() {
     if (!form.street_address.trim()) { setToast('Street address is required'); return }
     setBusy(true)
     try {
+      // We also write the legacy main_tech / subcontractors text fields so
+      // anything that still reads them keeps working. Source of truth is the
+      // new arrays.
       const job = await db.createJob({
-        ...form,
         street_address: form.street_address.trim(),
         unit: form.unit.trim() || null,
+        management_company: form.management_company,
+        unit_manager: form.unit_manager,
+        job_type: form.job_type,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
+        main_techs: form.main_techs,
+        main_tech: form.main_techs.join(', ') || null, // legacy mirror
+        subcontractor_names: form.subcontractor_names,
+        subcontractors: form.subcontractor_names.join(', ') || null, // legacy mirror
+        access_info: form.access_info,
+        crew_access: form.crew_access,
+        status: form.status,
+        needs_attention: form.needs_attention,
       })
-      // Seed the Notes & Updates log with the access info and initial notes
-      // typed at creation, so they're searchable and timestamped alongside future updates.
+      // Seed the Notes & Updates log with access info and initial notes.
       const access = (form.access_info || '').trim()
       const notes = (form.crew_access || '').trim()
-      if (access) {
-        await db.addNote(job.id, `Access information: ${access}`, user.id, user.name)
-      }
-      if (notes) {
-        await db.addNote(job.id, notes, user.id, user.name)
-      }
+      if (access) await db.addNote(job.id, `Access information: ${access}`, user.id, user.name)
+      if (notes) await db.addNote(job.id, notes, user.id, user.name)
       await refresh()
       navigate(`/job/${job.id}`)
     } catch (err) {
@@ -161,14 +162,11 @@ export default function NewJob() {
             </select>
           </div>
 
-          <SelectWithAdd
-            label="Management company"
-            hint="Pick one or add a new company on the spot."
+          <ClientSelect
             value={form.management_company}
             onChange={(v) => set('management_company', v)}
-            items={mgmtList}
-            onAdd={addMgmt}
-            placeholder="New company name"
+            options={clients}
+            onAdd={addClient}
           />
 
           <div>
@@ -176,15 +174,17 @@ export default function NewJob() {
             <input value={form.unit_manager} onChange={(e) => set('unit_manager', e.target.value)} placeholder="Name" />
           </div>
 
-          <SelectWithAdd
-            label="Main tech"
-            hint="Pick one or add a new tech on the spot."
-            value={form.main_tech}
-            onChange={(v) => set('main_tech', v)}
-            items={techList}
-            onAdd={addTech}
-            placeholder="New tech name"
-          />
+          <div className="field-full">
+            <ContactMultiSelect
+              label="Vine Tech"
+              hint="Search and select one or more Vine Techs. Add a new tech if not in the list."
+              value={form.main_techs}
+              onChange={(v) => set('main_techs', v)}
+              options={technicians}
+              onAddNew={addTechnician}
+              placeholder="Search or add a Vine Tech…"
+            />
+          </div>
 
           <div>
             <label>Status</label>
@@ -205,9 +205,15 @@ export default function NewJob() {
           </div>
 
           <div className="field-full">
-            <label>Subcontractor(s)</label>
-            <input value={form.subcontractors} onChange={(e) => set('subcontractors', e.target.value)}
-              placeholder="e.g. Zahava Electrical, Lubov Plumbing" />
+            <ContactMultiSelect
+              label="Subcontractor(s)"
+              hint="Search and select one or more subs. Add a new sub if not in the list."
+              value={form.subcontractor_names}
+              onChange={(v) => set('subcontractor_names', v)}
+              options={subcontractors}
+              onAddNew={addSub}
+              placeholder="e.g. Zahava Electrical, Lubov Plumbing"
+            />
           </div>
 
           <div className="field-full">

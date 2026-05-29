@@ -56,7 +56,10 @@ export default function Properties() {
                 </div>
                 <div className="job-meta">
                   {j.start_date && <span>📅 {formatDate(j.start_date)}</span>}
-                  {j.main_tech && <span>🔧 {j.main_tech}</span>}
+                  {(() => {
+                    const tech = (j.main_techs && j.main_techs.length > 0) ? j.main_techs.join(', ') : j.main_tech
+                    return tech ? <span>🔧 {tech}</span> : null
+                  })()}
                   {j.management_company && <span>🏢 {j.management_company}</span>}
                 </div>
               </Link>
