@@ -38,11 +38,22 @@ export const authProvider = {
   normalizeUser(session) {
     if (!session?.user) return null
     const u = session.user
-    // An invited user who has never signed in won't have last_sign_in_at set.
-    // We force them through the set-password flow before they can use the app.
-    // Recovery (password reset) sessions are detected separately via URL hash
-    // in App.jsx, and won't have this flag because the user has previous logins.
-    const neverSignedIn = !u.last_sign_in_at
+
+    // Detect "this user just used an invite link and has not yet set a password."
+    // Supabase counts the link click as a sign-in, so we can't use
+    // last_sign_in_at alone. But on an invite-link click, email_confirmed_at
+    // and last_sign_in_at fire essentially simultaneously (same millisecond
+    // tick on the server). On any real subsequent login, they'll differ by
+    // far more than a few seconds. A 30-second window is generous and safe.
+    let needsPasswordSetup = false
+    if (u.email_confirmed_at && u.last_sign_in_at) {
+      const confirmed = new Date(u.email_confirmed_at).getTime()
+      const signedIn = new Date(u.last_sign_in_at).getTime()
+      if (Math.abs(signedIn - confirmed) < 30_000) {
+        needsPasswordSetup = true
+      }
+    }
+
     return {
       id: u.id,
       email: u.email,
@@ -50,7 +61,7 @@ export const authProvider = {
         u.user_metadata?.full_name ||
         u.email?.split('@')[0] ||
         'User',
-      needsPasswordSetup: neverSignedIn,
+      needsPasswordSetup,
     }
   },
 }
