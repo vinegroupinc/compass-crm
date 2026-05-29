@@ -109,7 +109,7 @@ export default function Dashboard() {
       {nothing && <div className="empty">No active jobs yet. Tap “New Job” to add the first one.</div>}
 
       {myJobs.length > 0 && (
-        <Section railClass="rail-mine" title="My Tasks" count={myJobs.length}>
+        <Section railClass="rail-mine" title="Planner" count={myJobs.length}>
           <div className="job-grid">
             {myJobs.map((j) => (
               <JobCard key={j.id} job={j} flag="mine" showTasksFor={user.id} />

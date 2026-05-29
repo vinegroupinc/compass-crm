@@ -319,115 +319,156 @@ export default function JobDetail() {
         )}
       </div>
 
-      {/* tasks */}
+      {/* tasks — two columns: list on left (scrolls past 3), form on right */}
       <div className="card-pad" style={{ marginBottom: 16 }}>
         <h2 style={{ fontSize: 18, marginBottom: 4 }}>Tasks</h2>
         <div className="hint" style={{ marginBottom: 12 }}>{USERS_NOTE}</div>
-        {tasks.length === 0 && <div className="hint">No tasks yet.</div>}
-        {tasks.map((t) => (
-          <div key={t.id} className="task-row">
-            <div className="task-line" style={{ borderTop: 'none', padding: 0 }}>
-              <button className={`task-check ${t.done ? 'done' : ''}`} onClick={() => toggleTask(t)}>
-                {t.done ? '✓' : ''}
-              </button>
-              <span className={`task-text ${t.done ? 'done' : ''}`} style={{ flex: 1 }}>
-                {t.text}
-              </span>
-              <button className="btn btn-ghost btn-sm" onClick={() => removeTask(t)}>✕</button>
+
+        <div className="split-pane">
+          {/* LEFT: task list */}
+          <div className="split-pane-left">
+            {tasks.length === 0 && <div className="hint">No tasks yet.</div>}
+            <div className={`tasks-list ${tasks.length >= 3 ? 'tasks-list-scroll' : ''}`}>
+              {tasks.map((t) => (
+                <div key={t.id} className="task-row">
+                  <div className="task-line" style={{ borderTop: 'none', padding: 0 }}>
+                    <button className={`task-check ${t.done ? 'done' : ''}`} onClick={() => toggleTask(t)}>
+                      {t.done ? '✓' : ''}
+                    </button>
+                    <span className={`task-text ${t.done ? 'done' : ''}`} style={{ flex: 1 }}>
+                      {t.text}
+                    </span>
+                    <button className="btn btn-ghost btn-sm" onClick={() => removeTask(t)}>✕</button>
+                  </div>
+                  <div className="task-meta-row">
+                    <select
+                      className="task-assignee-select"
+                      value={t.assigned_user_id || ''}
+                      onChange={(e) => changeAssignee(t.id, e.target.value)}
+                      title="Assigned to"
+                    >
+                      {team.length === 0 && <option value="">{t.assigned_name || 'Unassigned'}</option>}
+                      {team.map((m) => (
+                        <option key={m.id} value={m.id}>{m.full_name}</option>
+                      ))}
+                    </select>
+                    {/* Compact icon-only date input — CSS hides the date
+                        text and keeps only the calendar picker button. */}
+                    <input
+                      type="date"
+                      className="task-date-icon"
+                      value={t.due_date || ''}
+                      onChange={(e) => changeTaskDue(t.id, e.target.value)}
+                      title={t.due_date ? `Shows ${formatDate(t.due_date)}` : 'Set due date'}
+                    />
+                    {t.due_date && t.due_date > today && (
+                      <span className="badge badge-soft" style={{ fontSize: 11 }}>
+                        {formatDate(t.due_date)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="task-meta-row">
-              <select
-                className="task-assignee-select"
-                value={t.assigned_user_id || ''}
-                onChange={(e) => changeAssignee(t.id, e.target.value)}
-                title="Assigned to"
-              >
-                {team.length === 0 && <option value="">{t.assigned_name || 'Unassigned'}</option>}
-                {team.map((m) => (
-                  <option key={m.id} value={m.id}>{m.full_name}</option>
-                ))}
-              </select>
-              <input
-                type="date"
-                className="task-due-input"
-                value={t.due_date || ''}
-                onChange={(e) => changeTaskDue(t.id, e.target.value)}
-                title="Show on dashboard starting"
-              />
-              {t.due_date && t.due_date > today && (
-                <span className="badge badge-soft" style={{ fontSize: 11 }}>
-                  shows {formatDate(t.due_date)}
-                </span>
-              )}
+            {tasks.length >= 3 && (
+              <div className="hint" style={{ marginTop: 8, fontSize: 12 }}>
+                Scroll inside the box above — {tasks.length} tasks.
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT: add-task form */}
+          <div className="split-pane-right">
+            <label>New task</label>
+            <textarea
+              className="task-add-text"
+              placeholder="Describe the task…"
+              value={newTask}
+              onChange={(e) => setNewTask(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addTask() }}
+              rows={3}
+            />
+            <label style={{ marginTop: 12 }}>Assign to</label>
+            <select value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
+              {team.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.id === user.id ? `Me (${m.full_name})` : m.full_name}
+                </option>
+              ))}
+            </select>
+            <label style={{ marginTop: 12 }}>Due date (optional)</label>
+            <input
+              type="date"
+              value={newTaskDue}
+              onChange={(e) => setNewTaskDue(e.target.value)}
+            />
+            <button className="btn btn-primary btn-block" style={{ marginTop: 14 }} onClick={addTask}>
+              Push to planner
+            </button>
+            <div className="hint" style={{ marginTop: 8, fontSize: 12 }}>
+              Optional date hides the task until that day. Leave blank to show immediately.
             </div>
           </div>
-        ))}
-        <div className="task-add-grid" style={{ marginTop: 14 }}>
-          <input className="task-add-text" placeholder="New task…" value={newTask}
-            onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} />
-          <select value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
-            {team.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.id === user.id ? `Me (${m.full_name})` : m.full_name}
-              </option>
-            ))}
-          </select>
-          <input
-            type="date"
-            value={newTaskDue}
-            onChange={(e) => setNewTaskDue(e.target.value)}
-            title="Optional: hide from dashboard until this date"
-          />
-          <button className="btn btn-primary btn-sm" onClick={addTask}>Add</button>
-        </div>
-        <div className="hint" style={{ marginTop: 6 }}>
-          Optional date hides a task from dashboards until that day. Leave blank to show immediately.
         </div>
       </div>
 
-      {/* notes — append only, author may edit own */}
+      {/* notes — two columns: scrollable list on left, add-note form on right */}
       <div className="card-pad" style={{ marginBottom: 16 }}>
         <h2 style={{ fontSize: 18, marginBottom: 4 }}>Notes & updates</h2>
         <div className="hint" style={{ marginBottom: 12 }}>
           Notes are timestamped and cannot be edited. The author can delete their own message within 24 hours.
         </div>
-        <textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Add an update…" />
-        <button className="btn btn-accent btn-sm" style={{ marginTop: 8 }} onClick={postNote}>Add note</button>
 
-        <div
-          className={`notes-list ${notes.length >= 3 ? 'notes-list-scroll' : ''}`}
-          style={{ marginTop: 16 }}
-        >
-          {notes.length === 0 && <div className="hint">No notes yet.</div>}
-          {notes.map((n) => {
-            const isDeleted = !!n.deleted_at
-            const isAuthor = n.author_id === user.id
-            const ageHours = (Date.now() - new Date(n.created_at).getTime()) / 3_600_000
-            const canDelete = isAuthor && !isDeleted && ageHours < 24
-            return (
-              <div key={n.id} className={`note ${isDeleted ? 'note-deleted' : ''}`}>
-                <div className="note-head">
-                  <span className="note-author">{n.author_name}</span>
-                  <span className="note-time">{formatTimestamp(n.created_at)}</span>
-                </div>
-                <div className="note-body">{n.body}</div>
-                {canDelete && (
-                  <button
-                    className="btn btn-ghost btn-sm note-delete-btn"
-                    onClick={() => deleteNote(n.id)}
-                  >
-                    Delete
-                  </button>
-                )}
+        <div className="split-pane">
+          {/* LEFT: notes list */}
+          <div className="split-pane-left">
+            <div className={`notes-list ${notes.length >= 3 ? 'notes-list-scroll' : ''}`}>
+              {notes.length === 0 && <div className="hint">No notes yet.</div>}
+              {notes.map((n) => {
+                const isDeleted = !!n.deleted_at
+                const isAuthor = n.author_id === user.id
+                const ageHours = (Date.now() - new Date(n.created_at).getTime()) / 3_600_000
+                const canDelete = isAuthor && !isDeleted && ageHours < 24
+                return (
+                  <div key={n.id} className={`note ${isDeleted ? 'note-deleted' : ''}`}>
+                    <div className="note-head">
+                      <span className="note-author">{n.author_name}</span>
+                      <span className="note-time">{formatTimestamp(n.created_at)}</span>
+                    </div>
+                    <div className="note-body">{n.body}</div>
+                    {canDelete && (
+                      <button
+                        className="btn btn-ghost btn-sm note-delete-btn"
+                        onClick={() => deleteNote(n.id)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            {notes.length >= 3 && (
+              <div className="hint" style={{ marginTop: 8, fontSize: 12 }}>
+                Scroll inside the box above — {notes.length} messages.
               </div>
-            )
-          })}
-        </div>
-        {notes.length >= 3 && (
-          <div className="hint" style={{ marginTop: 8, fontSize: 12 }}>
-            Scroll inside the box above — {notes.length} messages.
+            )}
           </div>
-        )}
+
+          {/* RIGHT: add-note form */}
+          <div className="split-pane-right">
+            <label>Add a note</label>
+            <textarea
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              placeholder="Add an update…"
+              rows={5}
+            />
+            <button className="btn btn-accent btn-block" style={{ marginTop: 10 }} onClick={postNote}>
+              Add note
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* schedule — moved to the bottom of the page per latest design */}

@@ -325,6 +325,25 @@ a { color: inherit; text-decoration: none; }
 }
 .note-delete-btn { margin-top: 8px; color: var(--attention); }
 
+/* Two-column split pane used by Tasks and Notes & Updates sections.
+   Left = list (typically scrollable when long), right = add-new form.
+   Stacks vertically on mobile so nothing gets cramped. */
+.split-pane {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.split-pane-left, .split-pane-right { min-width: 0; }
+.split-pane-right label:first-child { margin-top: 0; }
+@media (max-width: 759px) {
+  .split-pane { grid-template-columns: 1fr; gap: 18px; }
+  /* On mobile, put the form ABOVE the list so the input is visible without
+     scrolling past a long list of existing items. */
+  .split-pane-right { order: 1; }
+  .split-pane-left  { order: 2; }
+}
+
 /* Notes list: by default grows freely. Once 3+ notes exist, becomes a
    scrollable inner box so the job page doesn't get a mile long. */
 .notes-list-scroll {
@@ -337,8 +356,45 @@ a { color: inherit; text-decoration: none; }
 }
 .notes-list-scroll .note:first-child { padding-top: 4px; border-top: none; }
 .notes-list-scroll .note:last-child { padding-bottom: 4px; }
+
+/* Tasks list: same scroll treatment past 3 tasks. */
+.tasks-list-scroll {
+  max-height: 380px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  background: #fafbfc;
+}
+.tasks-list-scroll .task-row:first-child { border-top: none; padding-top: 4px; }
+
 @media (max-width: 759px) {
   .notes-list-scroll { max-height: 340px; }
+  .tasks-list-scroll { max-height: 300px; }
+}
+
+/* Icon-only date input on existing tasks. Hides the date text so only the
+   calendar picker icon shows. Cross-browser: works in WebKit/Blink (Chrome,
+   Safari, Edge) by hiding the inner pseudo-elements; Firefox already shows
+   only the calendar widget when the input is narrow. */
+.task-date-icon {
+  width: 36px;
+  min-height: 36px;
+  padding: 4px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 16px;
+  color: transparent;        /* hide the "mm/dd/yyyy" placeholder text */
+}
+.task-date-icon::-webkit-datetime-edit { display: none; }
+.task-date-icon::-webkit-inner-spin-button { display: none; }
+.task-date-icon::-webkit-clear-button { display: none; }
+.task-date-icon::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
 }
 
 /* ---------- address autocomplete ---------- */
