@@ -65,10 +65,18 @@ export default function Dashboard() {
   // Every active status, always shown — even empty ones — so the dashboard
   // layout is consistent day-to-day. Jobs are not de-duplicated; a job in
   // Planner / Needs Attention also still shows in its status window.
-  const byStatus = ACTIVE_STATUS_ORDER.map((status) => ({
-    status,
-    jobs: active.filter((j) => j.status === status),
-  }))
+  // Sort: status windows with jobs come first, empty ones pushed to the bottom.
+  // Within each group, canonical ACTIVE_STATUS_ORDER is preserved (sort is stable).
+  const byStatus = ACTIVE_STATUS_ORDER
+    .map((status) => ({
+      status,
+      jobs: active.filter((j) => j.status === status),
+    }))
+    .sort((a, b) => {
+      const aEmpty = a.jobs.length === 0 ? 1 : 0
+      const bEmpty = b.jobs.length === 0 ? 1 : 0
+      return aEmpty - bEmpty
+    })
 
   const nothing = active.length === 0
   // Split top into 2 columns only when BOTH have items
