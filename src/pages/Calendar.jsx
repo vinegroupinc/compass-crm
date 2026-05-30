@@ -104,8 +104,9 @@ export default function CalendarPage() {
       }
     }
     for (const ev of events) {
-      const job = jobs.find((j) => j.id === ev.job_id)
-      if (!job) continue
+      // Standalone events (no job) still appear; tied events join their job
+      const job = ev.job_id ? jobs.find((j) => j.id === ev.job_id) : null
+      if (ev.job_id && !job) continue // job was deleted, skip
       push(ev.event_date, {
         kind: 'event',
         id: 'e-' + ev.id,
@@ -124,13 +125,14 @@ export default function CalendarPage() {
   function go(delta) { const next = shiftMonth(y, m, delta); setView(next) }
   function goToday() { const t = todayParts(); setView({ y: t.y, m: t.m }) }
 
-  async function createEvent({ jobId, title, eventDate, eventTime }) {
-    if (!jobId) { setToast('Pick a job first'); return }
+  async function createEvent({ jobId, title, eventDate, eventTime, noJob }) {
+    if (!noJob && !jobId) { setToast('Pick a job, or check "not associated with a job"'); return }
     if (!title.trim()) { setToast('Give it a name'); return }
     if (!eventDate) { setToast('Pick a date'); return }
     try {
       await db.addScheduledEvent({
-        jobId, title, eventDate, eventTime,
+        jobId: noJob ? null : jobId,
+        title, eventDate, eventTime,
         createdBy: user.id, createdByName: user.name,
       })
       await refresh()
@@ -167,6 +169,7 @@ export default function CalendarPage() {
         <div className="cal-toolbar-title">{MONTH_NAMES[m]} {y}</div>
         <button className="btn btn-ghost btn-sm" onClick={() => go(1)} aria-label="Next month">→</button>
         <button className="btn btn-ghost btn-sm cal-today-btn" onClick={goToday}>Today</button>
+        <button className="btn btn-accent btn-sm" onClick={() => setAddingForDate(today)}>+ Event</button>
       </div>
 
       {/* Weekday header */}
@@ -253,15 +256,20 @@ export default function CalendarPage() {
               <div key={it.id} className="list-item" style={{ marginTop: 12 }}>
                 <div className="name">
                   {it.event.event_time ? formatTime(it.event.event_time) + ' · ' : ''}{it.event.title}
-                  <div className="hint" style={{ marginTop: 4 }}>
-                    <Link
-                      to={`/job/${it.job.id}`}
-                      onClick={() => setSelectedDate(null)}
-                      style={{ color: 'var(--accent)' }}
-                    >
-                      {it.job.street_address}{it.job.unit ? ` · Unit ${it.job.unit}` : ''}
-                    </Link>
-                  </div>
+                  {it.job && (
+                    <div className="hint" style={{ marginTop: 4 }}>
+                      <Link
+                        to={`/job/${it.job.id}`}
+                        onClick={() => setSelectedDate(null)}
+                        style={{ color: 'var(--accent)' }}
+                      >
+                        {it.job.street_address}{it.job.unit ? ` · Unit ${it.job.unit}` : ''}
+                      </Link>
+                    </div>
+                  )}
+                  {!it.job && (
+                    <div className="hint" style={{ marginTop: 4 }}>Standalone event</div>
+                  )}
                 </div>
                 <button
                   className="btn btn-ghost btn-sm"
@@ -313,16 +321,22 @@ function EventComposer({ initialDate, jobs, onClose, onSave }) {
   const [title, setTitle] = useState('')
   const [eventDate, setEventDate] = useState(initialDate)
   const [eventTime, setEventTime] = useState('')
+  const [noJob, setNoJob] = useState(false)
   const activeJobs = jobs.filter((j) => !['Billed','Closed'].includes(j.status))
 
   return (
     <Modal onClose={onClose}>
       <h3>New calendar event</h3>
       <div className="hint" style={{ marginTop: 4, marginBottom: 14 }}>
-        A one-off entry attached to a job (e.g. “Reglaze at 2pm”).
+        A one-off entry that shows on the calendar.
       </div>
       <label>Job</label>
-      <select value={jobId} onChange={(e) => setJobId(e.target.value)}>
+      <select
+        value={jobId}
+        onChange={(e) => setJobId(e.target.value)}
+        disabled={noJob}
+        style={noJob ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+      >
         <option value="">— Pick a job —</option>
         {activeJobs.map((j) => (
           <option key={j.id} value={j.id}>
@@ -330,6 +344,17 @@ function EventComposer({ initialDate, jobs, onClose, onSave }) {
           </option>
         ))}
       </select>
+      <label className="row" style={{ marginTop: 8, marginBottom: 0, gap: 8, cursor: 'pointer', alignItems: 'center' }}>
+        <input
+          type="checkbox"
+          style={{ width: 18, height: 18, minHeight: 'auto' }}
+          checked={noJob}
+          onChange={(e) => { setNoJob(e.target.checked); if (e.target.checked) setJobId('') }}
+        />
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-soft)' }}>
+          This event is not associated with a job
+        </span>
+      </label>
       <label style={{ marginTop: 12 }}>Title / what's happening</label>
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Reglaze" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
@@ -345,7 +370,7 @@ function EventComposer({ initialDate, jobs, onClose, onSave }) {
       <div className="row" style={{ marginTop: 18 }}>
         <button
           className="btn btn-accent btn-block"
-          onClick={() => onSave({ jobId, title, eventDate, eventTime })}
+          onClick={() => onSave({ jobId, title, eventDate, eventTime, noJob })}
         >Save event</button>
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
       </div>
