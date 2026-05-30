@@ -5,6 +5,7 @@
 // re-implement this file's exported functions and nothing else changes.
 
 import { supabase } from './supabaseClient'
+import { logActivity } from './activityLog'
 
 export const authProvider = {
   async getSession() {
@@ -26,10 +27,42 @@ export const authProvider = {
       password,
     })
     if (error) throw error
+    // Log only explicit user-initiated sign-ins (not auth-state-change
+    // events, which also fire on page refresh / token refresh).
+    const u = data?.user
+    if (u) {
+      logActivity({
+        kind: 'login',
+        actor: {
+          id: u.id,
+          name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'User',
+        },
+        targetKind: 'user',
+        targetId: u.id,
+        targetLabel: u.user_metadata?.full_name || u.email,
+      })
+    }
     return data
   },
 
   async signOut() {
+    // Log BEFORE calling signOut so we still have the session/user context.
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const u = session?.user
+      if (u) {
+        await logActivity({
+          kind: 'logout',
+          actor: {
+            id: u.id,
+            name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'User',
+          },
+          targetKind: 'user',
+          targetId: u.id,
+          targetLabel: u.user_metadata?.full_name || u.email,
+        })
+      }
+    } catch {} // swallow — logout must succeed even if logging fails
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   },

@@ -36,6 +36,9 @@ function CompactCard({ job, flag, userId }) {
       <div className="job-title" style={{ fontSize: 15 }}>
         {job.street_address}{job.unit ? <span style={{ color: 'var(--ink-faint)' }}> · Unit {job.unit}</span> : null}
       </div>
+      {flag === 'attention' && job.attention_note && (
+        <div className="attention-note">{job.attention_note}</div>
+      )}
       {tasks.length > 0 && (
         <div style={{ marginTop: 8 }}>
           {tasks.map((t) => (

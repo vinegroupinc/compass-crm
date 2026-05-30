@@ -78,7 +78,12 @@ export default function Layout({ children }) {
       <footer className="site-footer">
         <div className="container site-footer-inner">
           <span>© 2026 Compass, a Vine Group company</span>
-          <span>Compass is for internal use only</span>
+          <span className="site-footer-right">
+            <span>Compass is for internal use only</span>
+            {user && (
+              <NavLink to="/admin/login" className="site-footer-admin">Admin</NavLink>
+            )}
+          </span>
         </div>
       </footer>
 

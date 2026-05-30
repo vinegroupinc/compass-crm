@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../context/DataContext'
+import { useAuth } from '../context/AuthContext'
 import * as db from '../lib/db'
+import { logActivity } from '../lib/activityLog'
 import { JOB_TYPES, STATUSES } from '../lib/constants'
 import { Toast } from '../components/UI'
 import { ContactMultiSelect } from '../components/ContactMultiSelect'
@@ -52,6 +54,7 @@ function ClientSelect({ value, onChange, options, onAdd }) {
 export default function NewJob() {
   const navigate = useNavigate()
   const { clients, technicians, subcontractors, refresh } = useData()
+  const { user } = useAuth()
   const [addresses, setAddresses] = useState([])
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
@@ -121,6 +124,14 @@ export default function NewJob() {
         needs_attention: form.needs_attention,
       })
       await refresh()
+      logActivity({
+        kind: 'job_created',
+        actor: user,
+        targetKind: 'job',
+        targetId: job.id,
+        targetLabel: `${job.street_address}${job.unit ? ' · Unit ' + job.unit : ''}`,
+        payload: { status: job.status, job_type: job.job_type },
+      })
       navigate(`/job/${job.id}`)
     } catch (err) {
       setToast(err?.message || 'Could not save job')

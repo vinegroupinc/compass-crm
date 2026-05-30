@@ -110,9 +110,28 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-faint);
 }
 
+/* ---------- close-job zone (above danger zone) ---------- */
+.close-zone {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.close-zone-text h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  font-weight: 600;
+}
+
 /* ---------- danger zone ---------- */
 .danger-zone {
-  margin-top: 26px;
+  margin-top: 22px;
   border: 1.5px solid #f3c7c7;
   background: var(--attention-soft);
   border-radius: var(--radius);
@@ -129,6 +148,131 @@ a { color: inherit; text-decoration: none; }
   font-size: 13px;
   color: var(--ink-soft);
   margin: 0 0 14px;
+}
+
+/* Attention note shown on dashboard Needs Attention cards */
+.attention-note {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--attention-soft);
+  border-left: 3px solid var(--attention);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+/* Footer right-side group: tagline + Admin link */
+.site-footer-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+}
+.site-footer-admin {
+  color: var(--ink-faint);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  transition: background .12s, color .12s;
+}
+.site-footer-admin:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+/* ---------- Admin page ---------- */
+.admin-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.admin-cat {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--ink-soft);
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-cat:hover { background: #f1f3f7; color: var(--ink); }
+.admin-cat.on {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.admin-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.admin-controls > div:first-child {
+  flex: 0 0 260px;
+  max-width: 100%;
+}
+
+.admin-log {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.admin-log-row {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--line);
+}
+.admin-log-row:first-child { border-top: none; }
+.admin-log-icon {
+  flex-shrink: 0;
+  width: 30px; height: 30px;
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  background: #f1f3f7;
+  border-radius: 50%;
+  font-size: 15px;
+}
+.admin-log-body { flex: 1; min-width: 0; }
+.admin-log-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.admin-log-kind {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+}
+.admin-log-time {
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-left: auto;
+}
+.admin-log-meta {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+.admin-log-note {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: #fafbfc;
+  border-left: 3px solid var(--ink-faint);
+  border-radius: 4px;
+  font-size: 13px;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 759px) {

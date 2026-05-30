@@ -12,6 +12,8 @@ import Properties from './pages/Properties'
 import Search from './pages/Search'
 import Calendar from './pages/Calendar'
 import Lists from './pages/Lists'
+import AdminLogin from './pages/AdminLogin'
+import Admin from './pages/Admin'
 
 const PUBLIC_PATHS = ['/forgot', '/set-password']
 
@@ -54,6 +56,8 @@ export default function App() {
           <Route path="/search" element={<Search />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/lists" element={<Lists />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

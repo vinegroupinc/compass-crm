@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import * as db from '../lib/db'
+import { logActivity } from '../lib/activityLog'
 import { useData } from '../context/DataContext'
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge, Toast, Modal } from '../components/UI'
@@ -42,6 +43,15 @@ export default function JobDetail() {
   const [eventDate, setEventDate] = useState(() => laToday())
   const [eventTime, setEventTime] = useState('')
   const [addingEvent, setAddingEvent] = useState(false)
+
+  // Needs Attention modal (when setting it; clearing is one-tap)
+  const [settingAttention, setSettingAttention] = useState(false)
+  const [attentionNoteDraft, setAttentionNoteDraft] = useState('')
+
+  // Close Job modal
+  const [closing, setClosing] = useState(false)
+  const [closeNote, setCloseNote] = useState('')
+  const [closeNoSale, setCloseNoSale] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -105,16 +115,61 @@ export default function JobDetail() {
   }
 
   async function quickStatus(status) {
+    const prev = job.status
     try {
-      await db.updateJob(job.id, { status }, { statusChanged: status !== job.status })
+      await db.updateJob(job.id, { status }, { statusChanged: status !== prev })
       await load(); await refresh(); flash(`Status → ${status}`)
+      if (status !== prev) {
+        logActivity({
+          kind: 'job_status_changed',
+          actor: user,
+          targetKind: 'job',
+          targetId: job.id,
+          targetLabel: `${job.street_address}${job.unit ? ' · Unit ' + job.unit : ''}`,
+          note: `${prev} → ${status}`,
+          payload: { from: prev, to: status },
+        })
+      }
     } catch (e) { flash(e?.message || 'Failed') }
   }
 
+  // Generic flag toggle (kept for non-attention flags if added later).
   async function toggleFlag(field) {
     try {
       await db.updateJob(job.id, { [field]: !job[field] })
       await load(); await refresh()
+    } catch (e) { flash(e?.message || 'Failed') }
+  }
+
+  // Needs Attention: setting → prompts for an optional note; clearing → wipes
+  // the note and logs the clear. Both flow through the admin activity log only.
+  async function setNeedsAttention(note) {
+    try {
+      await db.updateJob(job.id, { needs_attention: true, attention_note: (note || '').trim() || null })
+      await load(); await refresh()
+      logActivity({
+        kind: 'attention_set',
+        actor: user,
+        targetKind: 'job',
+        targetId: job.id,
+        targetLabel: `${job.street_address}${job.unit ? ' · Unit ' + job.unit : ''}`,
+        note: (note || '').trim() || null,
+      })
+      flash('Marked Needs Attention')
+    } catch (e) { flash(e?.message || 'Failed') }
+  }
+  async function clearNeedsAttention() {
+    try {
+      await db.updateJob(job.id, { needs_attention: false, attention_note: null })
+      await load(); await refresh()
+      logActivity({
+        kind: 'attention_cleared',
+        actor: user,
+        targetKind: 'job',
+        targetId: job.id,
+        targetLabel: `${job.street_address}${job.unit ? ' · Unit ' + job.unit : ''}`,
+      })
+      flash('Cleared Needs Attention')
     } catch (e) { flash(e?.message || 'Failed') }
   }
 
@@ -157,9 +212,56 @@ export default function JobDetail() {
   async function deleteJob() {
     try {
       await db.softDeleteJob(job.id)
+      logActivity({
+        kind: 'job_deleted',
+        actor: user,
+        targetKind: 'job',
+        targetId: job.id,
+        targetLabel: `${job.street_address}${job.unit ? ' · Unit ' + job.unit : ''}`,
+      })
       await refresh()
       navigate('/')
     } catch (e) { flash(e?.message || 'Could not delete') }
+  }
+
+  // Close Job: sets status to "Closed" or "No-Sale", logs to BOTH admin and job timeline.
+  async function confirmClose() {
+    const newStatus = closeNoSale ? 'No-Sale' : 'Closed'
+    const trimmed = (closeNote || '').trim()
+    try {
+      // Update status + persist the close note
+      await db.updateJob(job.id, {
+        status: newStatus,
+        closed_note: trimmed || null,
+      }, { statusChanged: true })
+      // Also drop the close note into the job's notes log so it shows in timeline
+      if (trimmed) {
+        await db.addNote(
+          job.id,
+          `Job closed${closeNoSale ? ' (No-Sale)' : ''}: ${trimmed}`,
+          user.id, user.name,
+        )
+      } else {
+        await db.addNote(
+          job.id,
+          `Job closed${closeNoSale ? ' (No-Sale)' : ''}.`,
+          user.id, user.name,
+        )
+      }
+      // Admin log
+      logActivity({
+        kind: 'job_closed',
+        actor: user,
+        targetKind: 'job',
+        targetId: job.id,
+        targetLabel: `${job.street_address}${job.unit ? ' · Unit ' + job.unit : ''}`,
+        note: trimmed || null,
+        payload: { no_sale: closeNoSale, final_status: newStatus },
+      })
+      setClosing(false); setCloseNote(''); setCloseNoSale(false)
+      await load(); await refresh()
+      flash(`Job closed → ${newStatus}`)
+    } catch (e) { flash(e?.message || 'Could not close') }
   }
 
   // ---- composer actions ----
@@ -186,13 +288,22 @@ export default function JobDetail() {
       return m?.full_name || 'Teammate'
     })
     try {
-      await db.addTask({
+      const created = await db.addTask({
         jobId: job.id,
         text,
         assigneeIds: taskAssignees,
         assigneeNames,
         dueDate: taskDue,
         createdByName: user.name,
+      })
+      logActivity({
+        kind: 'task_created',
+        actor: user,
+        targetKind: 'task',
+        targetId: created?.id,
+        targetLabel: `${job.street_address}${job.unit ? ' · Unit ' + job.unit : ''}`,
+        note: text,
+        payload: { assignees: assigneeNames, due_date: taskDue },
       })
       setComposer('')
       setComposerMode(null)
@@ -216,6 +327,15 @@ export default function JobDetail() {
     if (!completing) return
     try {
       await db.completeTask(completing.taskId, completionNote, user.name)
+      logActivity({
+        kind: 'task_completed',
+        actor: user,
+        targetKind: 'task',
+        targetId: completing.taskId,
+        targetLabel: `${job.street_address}${job.unit ? ' · Unit ' + job.unit : ''}`,
+        note: completing.taskText,
+        payload: { completion_note: completionNote || 'Completed' },
+      })
       setCompleting(null); setCompletionNote('')
       await load(); await refresh()
       flash('Task completed')
@@ -277,8 +397,9 @@ export default function JobDetail() {
       return ad.localeCompare(bd)
     })
 
-  // Activity timeline: notes + task-created + task-completed events, all
-  // reverse-chronological. Each event has { kind, when, ...payload }.
+  // Activity timeline: notes + task-completed events, reverse-chronological.
+  // Task CREATIONS are intentionally not shown here — they're logged to the
+  // admin activity log only. Completions stay (for accountability).
   const events = []
   for (const n of notes) {
     events.push({
@@ -289,12 +410,6 @@ export default function JobDetail() {
     })
   }
   for (const t of allTasks) {
-    events.push({
-      kind: 'task-created',
-      when: t.created_at,
-      id: 'tc-' + t.id,
-      task: t,
-    })
     if (t.done && t.completed_at) {
       events.push({
         kind: 'task-completed',
@@ -357,7 +472,14 @@ export default function JobDetail() {
           </span>
           <button
             className={`btn btn-sm ${job.needs_attention ? 'btn-danger' : 'btn-ghost'}`}
-            onClick={() => toggleFlag('needs_attention')}
+            onClick={() => {
+              if (job.needs_attention) {
+                clearNeedsAttention()
+              } else {
+                setAttentionNoteDraft('')
+                setSettingAttention(true)
+              }
+            }}
           >
             ⚠ {job.needs_attention ? 'Clear Attention' : 'Needs Attention'}
           </button>
@@ -625,29 +747,6 @@ export default function JobDetail() {
                   </div>
                 )
               }
-              if (ev.kind === 'task-created') {
-                const t = ev.task
-                const names = (t.assigned_names && t.assigned_names.length > 0)
-                  ? t.assigned_names.join(', ')
-                  : (t.assigned_name || 'Unassigned')
-                return (
-                  <div key={ev.id} className="activity-item activity-task">
-                    <span className="activity-icon" title="Task created">📌</span>
-                    <div className="activity-body">
-                      <div className="note-head">
-                        <span className="note-author">{t.created_by_name || 'Someone'} pushed a task</span>
-                        <span className="note-time">{formatTimestamp(t.created_at)}</span>
-                      </div>
-                      <div className="note-body">
-                        <strong>{t.text}</strong>
-                        <div className="hint" style={{ marginTop: 4 }}>
-                          To {names} · Due {t.due_date ? formatDate(t.due_date) : '—'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              }
               if (ev.kind === 'task-completed') {
                 const t = ev.task
                 return (
@@ -788,6 +887,21 @@ export default function JobDetail() {
         </div> {/* end bottom-right-stack */}
       </div>
 
+      {/* Close Job — final action that retires a job to Closed or No-Sale */}
+      {!['Closed', 'No-Sale'].includes(job.status) && (
+        <div className="close-zone">
+          <div className="close-zone-text">
+            <h3 style={{ margin: 0 }}>Wrap up this job</h3>
+            <p style={{ margin: '4px 0 0', color: 'var(--ink-soft)', fontSize: 13 }}>
+              Use when you're done. Closes the job and moves it off the dashboard.
+            </p>
+          </div>
+          <button className="btn btn-accent" onClick={() => setClosing(true)}>
+            Close Job
+          </button>
+        </div>
+      )}
+
       {/* Danger Zone — separated and clearly marked so deletion is deliberate. */}
       <div className="danger-zone">
         <h3>Danger Zone</h3>
@@ -833,6 +947,68 @@ export default function JobDetail() {
           <div className="row" style={{ marginTop: 16 }}>
             <button className="btn btn-accent btn-block" onClick={confirmComplete}>Mark complete</button>
             <button className="btn btn-ghost" onClick={() => setCompleting(null)}>Cancel</button>
+          </div>
+        </Modal>
+      )}
+
+      {settingAttention && (
+        <Modal onClose={() => setSettingAttention(false)}>
+          <h3>Mark Needs Attention</h3>
+          <p style={{ color: 'var(--ink-soft)', fontSize: 14, marginTop: 6, marginBottom: 14 }}>
+            Flagged jobs show up at the top of everyone's dashboard.
+          </p>
+          <label>Note (optional)</label>
+          <textarea
+            autoFocus
+            value={attentionNoteDraft}
+            onChange={(e) => setAttentionNoteDraft(e.target.value)}
+            placeholder="e.g. Client unreachable for 3 days."
+            rows={3}
+          />
+          <div className="row" style={{ marginTop: 16 }}>
+            <button
+              className="btn btn-danger btn-block"
+              onClick={() => {
+                setNeedsAttention(attentionNoteDraft)
+                setSettingAttention(false)
+              }}
+            >Mark Needs Attention</button>
+            <button className="btn btn-ghost" onClick={() => setSettingAttention(false)}>Cancel</button>
+          </div>
+        </Modal>
+      )}
+
+      {closing && (
+        <Modal onClose={() => setClosing(false)}>
+          <h3>Are you sure you want to close this job?</h3>
+          <p style={{ color: 'var(--ink-soft)', fontSize: 14, marginTop: 6, marginBottom: 14 }}>
+            <strong>{job.street_address}{job.unit ? ` · Unit ${job.unit}` : ''}</strong> will
+            be moved off the dashboard. You can still find it in Property History and Search.
+          </p>
+          <label>Closing note (optional)</label>
+          <textarea
+            autoFocus
+            value={closeNote}
+            onChange={(e) => setCloseNote(e.target.value)}
+            placeholder="e.g. Final walkthrough done, invoice sent."
+            rows={3}
+          />
+          <label className="row" style={{ marginTop: 12, marginBottom: 0, gap: 8, cursor: 'pointer', alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              style={{ width: 18, height: 18, minHeight: 'auto' }}
+              checked={closeNoSale}
+              onChange={(e) => setCloseNoSale(e.target.checked)}
+            />
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-soft)' }}>
+              No-Sale — we didn't go through with the job
+            </span>
+          </label>
+          <div className="row" style={{ marginTop: 16 }}>
+            <button className="btn btn-accent btn-block" onClick={confirmClose}>
+              Yes, close job
+            </button>
+            <button className="btn btn-ghost" onClick={() => setClosing(false)}>Cancel</button>
           </div>
         </Modal>
       )}

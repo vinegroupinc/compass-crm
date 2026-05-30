@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
+import { useAuth } from '../context/AuthContext'
 import { Link } from 'react-router-dom'
 import * as db from '../lib/db'
+import { logActivity } from '../lib/activityLog'
 import { Toast, Modal } from '../components/UI'
 
 function typeBadges(c) {
@@ -163,6 +165,7 @@ function ContactDetailModal({ contact, jobs, onClose }) {
 
 export default function Contacts() {
   const { contacts, refresh, loading } = useData()
+  const { user } = useAuth()
   const [q, setQ] = useState('')
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)        // contact being edited
@@ -185,17 +188,48 @@ export default function Contacts() {
   }
 
   async function saveNew(payload) {
-    try { await db.addContact(payload); await refresh(); flash('Contact added') }
+    try {
+      const created = await db.addContact(payload)
+      logActivity({
+        kind: 'contact_created',
+        actor: user,
+        targetKind: 'contact',
+        targetId: created?.id,
+        targetLabel: payload.name,
+      })
+      await refresh(); flash('Contact added')
+    }
     catch (e) { flash(e?.message || 'Failed') }
   }
 
   async function saveEdit(id, patch) {
-    try { await db.updateContact(id, patch); await refresh(); flash('Saved') }
+    try {
+      await db.updateContact(id, patch)
+      logActivity({
+        kind: 'contact_updated',
+        actor: user,
+        targetKind: 'contact',
+        targetId: id,
+        targetLabel: patch.name || '(edited)',
+      })
+      await refresh(); flash('Saved')
+    }
     catch (e) { flash(e?.message || 'Failed') }
   }
 
   async function removeContact(id) {
-    try { await db.deleteContact(id); await refresh(); flash('Deleted') }
+    const c = contacts.find((x) => x.id === id)
+    try {
+      await db.deleteContact(id)
+      logActivity({
+        kind: 'contact_deleted',
+        actor: user,
+        targetKind: 'contact',
+        targetId: id,
+        targetLabel: c?.name || '(unknown)',
+      })
+      await refresh(); flash('Deleted')
+    }
     catch (e) { flash(e?.message || 'Failed') }
   }
 

@@ -11,11 +11,14 @@ export const STATUSES = [
   'Complete',
   'Billed',
   'Closed',
+  'No-Sale',
   'Be-Back',
 ]
 
 // Statuses hidden from the main dashboard (still appear in Property History).
-export const HIDDEN_FROM_DASHBOARD = ['Billed', 'Closed']
+// Billed stays on the dashboard now — it's only Closed and No-Sale that fully
+// retire a job. "Close Job" on a job page sets one of those two.
+export const HIDDEN_FROM_DASHBOARD = ['Closed', 'No-Sale']
 
 export const JOB_TYPES = [
   'Turn',
@@ -42,6 +45,7 @@ export const STATUS_COLORS = {
   Complete: '#16a34a',
   Billed: '#475569',
   Closed: '#94a3b8',
+  'No-Sale': '#9ca3af',
   'Be-Back': '#dc2626',
 }
 
