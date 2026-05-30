@@ -11,6 +11,21 @@ import { laToday } from '../lib/time'
 // True if the user is one of the task's assignees (handles both new
 // multi-assignee array and the legacy single-assignee column).
 function isAssignedTo(task, userId) {
+  // TEMP DIAGNOSTIC — log assignment fields so we can see what Supabase returns
+  if (typeof window !== 'undefined' && !window.__loggedTasks) window.__loggedTasks = new Set()
+  if (typeof window !== 'undefined' && !window.__loggedTasks.has(task.id)) {
+    window.__loggedTasks.add(task.id)
+    // eslint-disable-next-line no-console
+    console.log('[task assignment]', {
+      taskId: task.id,
+      text: task.text,
+      assigned_user_ids: task.assigned_user_ids,
+      assigned_user_id: task.assigned_user_id,
+      checking_for_userId: userId,
+      includes_in_array: task.assigned_user_ids?.includes(userId),
+      legacy_match: task.assigned_user_id === userId,
+    })
+  }
   if (task.assigned_user_ids && task.assigned_user_ids.length > 0) {
     return task.assigned_user_ids.includes(userId)
   }
