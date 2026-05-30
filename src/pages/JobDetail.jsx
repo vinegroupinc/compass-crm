@@ -11,7 +11,7 @@ import { formatTimestamp, formatDate, formatTime, laToday } from '../lib/time'
 export default function JobDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { clients, technicians, subcontractors, team, events, refresh } = useData()
+  const { clients, technicians, subcontractors, team, events: scheduledEvents, refresh } = useData()
   const { user } = useAuth()
 
   const [job, setJob] = useState(null)
@@ -715,7 +715,7 @@ export default function JobDetail() {
             </div>
 
             {(() => {
-              const jobEvents = (events || [])
+              const jobEvents = (scheduledEvents || [])
                 .filter((e) => e.job_id === job.id)
                 .sort((a, b) => (a.event_date + (a.event_time || '')).localeCompare(b.event_date + (b.event_time || '')))
               if (jobEvents.length === 0 && !addingEvent) {
