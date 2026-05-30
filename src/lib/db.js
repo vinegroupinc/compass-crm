@@ -220,16 +220,26 @@ export async function getTeamMembers() {
 }
 
 /* ------------------------------- TASKS ---------------------------------- */
+// Multi-assignee model. Old single-assignee columns are still populated
+// (first assignee mirrored) so anything querying the old fields still works.
 
-export async function addTask(jobId, text, assignedUserId, assignedName, dueDate = null) {
+export async function addTask({
+  jobId, text, assigneeIds, assigneeNames, dueDate, createdByName,
+}) {
+  if (!Array.isArray(assigneeIds))  assigneeIds  = []
+  if (!Array.isArray(assigneeNames)) assigneeNames = []
   const { data, error } = await supabase
     .from('tasks')
     .insert({
       job_id: jobId,
       text: text.trim(),
-      assigned_user_id: assignedUserId || null,
-      assigned_name: assignedName || null,
+      assigned_user_ids: assigneeIds,
+      assigned_names:    assigneeNames,
+      // Legacy single-assignee mirror (first assignee, for back-compat).
+      assigned_user_id: assigneeIds[0] || null,
+      assigned_name:    assigneeNames[0] || null,
       due_date: dueDate || null,
+      created_by_name: createdByName || null,
       done: false,
     })
     .select()
@@ -249,10 +259,16 @@ export async function setTaskDue(id, dueDate) {
   return data
 }
 
-export async function toggleTask(id, done) {
+// Complete a task with a required completion note (UI defaults blank to "Completed").
+export async function completeTask(id, completionNote, completedByName) {
   const { data, error } = await supabase
     .from('tasks')
-    .update({ done })
+    .update({
+      done: true,
+      completed_at: new Date().toISOString(),
+      completed_by_name: completedByName || null,
+      completion_note: (completionNote && completionNote.trim()) || 'Completed',
+    })
     .eq('id', id)
     .select()
     .single()
@@ -260,10 +276,33 @@ export async function toggleTask(id, done) {
   return data
 }
 
-export async function reassignTask(id, assignedUserId, assignedName) {
+// Re-open a completed task (clears the completion fields).
+export async function reopenTask(id) {
   const { data, error } = await supabase
     .from('tasks')
-    .update({ assigned_user_id: assignedUserId, assigned_name: assignedName })
+    .update({
+      done: false,
+      completed_at: null,
+      completed_by_name: null,
+      completion_note: null,
+    })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// Update the assignee list on an existing task.
+export async function reassignTask(id, assigneeIds, assigneeNames) {
+  const { data, error } = await supabase
+    .from('tasks')
+    .update({
+      assigned_user_ids: assigneeIds,
+      assigned_names: assigneeNames,
+      assigned_user_id: assigneeIds[0] || null,
+      assigned_name: assigneeNames[0] || null,
+    })
     .eq('id', id)
     .select()
     .single()

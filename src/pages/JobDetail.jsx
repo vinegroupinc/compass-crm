@@ -8,9 +8,6 @@ import { ContactMultiSelect } from '../components/ContactMultiSelect'
 import { JOB_TYPES, STATUSES, STATUS_COLORS } from '../lib/constants'
 import { formatTimestamp, formatDate, laToday } from '../lib/time'
 
-const USERS_NOTE =
-  'Tasks can be assigned to any team member. Assigned open tasks appear on that person’s dashboard.'
-
 export default function JobDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -22,13 +19,22 @@ export default function JobDetail() {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
   const [toast, setToast] = useState('')
-  const [newNote, setNewNote] = useState('')
-  const [newTask, setNewTask] = useState('')
-  const [taskAssignee, setTaskAssignee] = useState(user.id)
-  const [newTaskDue, setNewTaskDue] = useState('')
   const [history, setHistory] = useState([])
   const [sched, setSched] = useState({ start_date: '', end_date: '' })
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // ---- Job Planner state ----
+  // One textarea drives either "Add update" or "Push task to planner"
+  const [composer, setComposer] = useState('')
+  // Default the new-task date to today (LA tz). User can change before pushing.
+  const [taskDue, setTaskDue] = useState(() => laToday())
+  // Multi-assignee: default to just me
+  const [taskAssignees, setTaskAssignees] = useState([user.id])
+  // Whether the "assignees + due date" expander is open
+  const [taskOptionsOpen, setTaskOptionsOpen] = useState(false)
+  // Active completion modal: holds the task being completed, plus the note draft
+  const [completing, setCompleting] = useState(null) // { taskId, taskText } | null
+  const [completionNote, setCompletionNote] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -123,13 +129,90 @@ export default function JobDetail() {
     } catch (e) { flash(e?.message || 'Could not delete') }
   }
 
-  async function postNote() {
-    if (!newNote.trim()) return
+  // ---- composer actions ----
+
+  async function addUpdate() {
+    const text = composer.trim()
+    if (!text) { flash('Type something first'); return }
     try {
-      await db.addNote(job.id, newNote, user.id, user.name)
-      setNewNote(''); await load(); flash('Note added')
-    } catch (e) { flash(e?.message || 'Could not add note') }
+      await db.addNote(job.id, text, user.id, user.name)
+      setComposer('')
+      await load()
+      flash('Update added')
+    } catch (e) { flash(e?.message || 'Could not add update') }
   }
+
+  async function pushTask() {
+    const text = composer.trim()
+    if (!text) { flash('Type the task first'); return }
+    if (!taskDue) { flash('Pick a due date'); return }
+    if (taskAssignees.length === 0) { flash('Assign at least one person'); return }
+    const assigneeNames = taskAssignees.map((id) => {
+      const m = team.find((x) => x.id === id)
+      return m?.full_name || 'Teammate'
+    })
+    try {
+      await db.addTask({
+        jobId: job.id,
+        text,
+        assigneeIds: taskAssignees,
+        assigneeNames,
+        dueDate: taskDue,
+        createdByName: user.name,
+      })
+      setComposer('')
+      // Keep the assignees + date so a quick second task can use the same context;
+      // a fresh "today" date is more useful than carrying yesterday over though,
+      // so reset the date if it's now in the past.
+      if (taskDue < laToday()) setTaskDue(laToday())
+      await load(); await refresh()
+      flash('Task pushed to planner')
+    } catch (e) { flash(e?.message || 'Could not create task') }
+  }
+
+  // ---- task lifecycle ----
+
+  function startComplete(task) {
+    setCompleting({ taskId: task.id, taskText: task.text })
+    setCompletionNote('')
+  }
+
+  async function confirmComplete() {
+    if (!completing) return
+    try {
+      await db.completeTask(completing.taskId, completionNote, user.name)
+      setCompleting(null); setCompletionNote('')
+      await load(); await refresh()
+      flash('Task completed')
+    } catch (e) { flash(e?.message || 'Could not complete task') }
+  }
+
+  async function reopenTask(task) {
+    if (!confirm('Re-open this task? It will appear in assignees\' planners again.')) return
+    try {
+      await db.reopenTask(task.id)
+      await load(); await refresh()
+      flash('Task re-opened')
+    } catch (e) { flash(e?.message || 'Failed') }
+  }
+
+  async function changeTaskDue(taskId, dueDate) {
+    try {
+      await db.setTaskDue(taskId, dueDate)
+      await load(); await refresh()
+    } catch (e) { flash(e?.message || 'Could not update due date') }
+  }
+
+  async function deleteTask(t) {
+    if (!confirm('Delete this task? This cannot be undone.')) return
+    try {
+      await db.deleteTask(t.id)
+      await load(); await refresh()
+      flash('Task deleted')
+    } catch (e) { flash(e?.message || 'Failed') }
+  }
+
+  // ---- notes ----
 
   async function deleteNote(noteId) {
     if (!confirm('Delete this message? This cannot be undone.')) return
@@ -139,51 +222,71 @@ export default function JobDetail() {
     } catch (e) { flash(e?.message || 'Could not delete (only the author can delete, within 24 hours)') }
   }
 
-  async function addTask() {
-    if (!newTask.trim()) return
-    const member = team.find((m) => m.id === taskAssignee)
-    const assignee = member?.full_name || user.name
-    try {
-      await db.addTask(job.id, newTask, taskAssignee, assignee, newTaskDue || null)
-      setNewTask(''); setNewTaskDue(''); await load(); await refresh(); flash('Task added')
-    } catch (e) { flash(e?.message || 'Could not add task') }
-  }
-
-  async function changeTaskDue(taskId, dueDate) {
-    try {
-      await db.setTaskDue(taskId, dueDate || null)
-      await load(); await refresh()
-    } catch (e) { flash(e?.message || 'Could not update due date') }
-  }
-
-  async function changeAssignee(taskId, newUserId) {
-    const member = team.find((m) => m.id === newUserId)
-    const name = member?.full_name || 'Teammate'
-    try {
-      await db.reassignTask(taskId, newUserId, name)
-      await load(); await refresh(); flash('Task reassigned')
-    } catch (e) { flash(e?.message || 'Could not reassign') }
-  }
-
-  async function toggleTask(t) {
-    try { await db.toggleTask(t.id, !t.done); await load(); await refresh() }
-    catch (e) { flash(e?.message || 'Failed') }
-  }
-
-  async function removeTask(t) {
-    try { await db.deleteTask(t.id); await load(); await refresh() }
-    catch (e) { flash(e?.message || 'Failed') }
-  }
-
   if (loading) return <div className="empty">Loading…</div>
   if (!job) return <div className="empty">Job not found.</div>
 
   const notes = [...(job.notes || [])].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   )
-  const tasks = [...(job.tasks || [])].sort((a, b) => Number(a.done) - Number(b.done))
-  const d = draft
+  const allTasks = job.tasks || []
   const today = laToday()
+  const d = draft
+
+  // Open tasks at the top, sorted by due date ascending (soonest first;
+  // tasks with no due date appear last in their group).
+  const openTasks = allTasks
+    .filter((t) => !t.done)
+    .sort((a, b) => {
+      const ad = a.due_date || '9999-12-31'
+      const bd = b.due_date || '9999-12-31'
+      return ad.localeCompare(bd)
+    })
+
+  // Activity timeline: notes + task-created + task-completed events, all
+  // reverse-chronological. Each event has { kind, when, ...payload }.
+  const events = []
+  for (const n of notes) {
+    events.push({
+      kind: 'note',
+      when: n.created_at,
+      id: 'note-' + n.id,
+      note: n,
+    })
+  }
+  for (const t of allTasks) {
+    events.push({
+      kind: 'task-created',
+      when: t.created_at,
+      id: 'tc-' + t.id,
+      task: t,
+    })
+    if (t.done && t.completed_at) {
+      events.push({
+        kind: 'task-completed',
+        when: t.completed_at,
+        id: 'td-' + t.id,
+        task: t,
+      })
+    }
+  }
+  events.sort((a, b) => new Date(b.when) - new Date(a.when))
+
+  // Names for the multi-assignee picker (label = "Me" for current user)
+  function pickerLabel(m) {
+    return m.id === user.id ? `${m.full_name} (Me)` : m.full_name
+  }
+  function toggleAssignee(uid) {
+    setTaskAssignees((prev) =>
+      prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]
+    )
+  }
+  function assigneesLabel() {
+    if (taskAssignees.length === 0) return 'No one'
+    const names = taskAssignees
+      .map((id) => team.find((m) => m.id === id)?.full_name?.split(' ')[0] || '?')
+    if (names.length <= 2) return names.join(' & ')
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2}`
+  }
 
   return (
     <>
@@ -319,175 +422,199 @@ export default function JobDetail() {
         )}
       </div>
 
-      {/* tasks — two columns: list on left (scrolls past 3), form on right */}
+      {/* JOB PLANNER — composer at top, open tasks + activity timeline below */}
       <div className="card-pad" style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Tasks</h2>
-        <div className="hint" style={{ marginBottom: 12 }}>{USERS_NOTE}</div>
+        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Job Planner</h2>
+        <div className="hint" style={{ marginBottom: 14 }}>
+          Type once, choose to push as a task (with assignee + due date) or post as an update.
+        </div>
 
-        <div className="split-pane">
-          {/* LEFT: task list */}
-          <div className="split-pane-left">
-            {tasks.length === 0 && <div className="hint">No tasks yet.</div>}
-            <div className={`tasks-list ${tasks.length >= 3 ? 'tasks-list-scroll' : ''}`}>
-              {tasks.map((t) => (
-                <div key={t.id} className="task-row">
-                  <div className="task-line" style={{ borderTop: 'none', padding: 0 }}>
-                    <button className={`task-check ${t.done ? 'done' : ''}`} onClick={() => toggleTask(t)}>
-                      {t.done ? '✓' : ''}
-                    </button>
-                    <span className={`task-text ${t.done ? 'done' : ''}`} style={{ flex: 1 }}>
-                      {t.text}
-                    </span>
-                    <button className="btn btn-ghost btn-sm" onClick={() => removeTask(t)}>✕</button>
-                  </div>
-                  <div className="task-meta-row">
-                    <select
-                      className="task-assignee-select"
-                      value={t.assigned_user_id || ''}
-                      onChange={(e) => changeAssignee(t.id, e.target.value)}
-                      title="Assigned to"
-                    >
-                      {team.length === 0 && <option value="">{t.assigned_name || 'Unassigned'}</option>}
-                      {team.map((m) => (
-                        <option key={m.id} value={m.id}>{m.full_name}</option>
-                      ))}
-                    </select>
-                    {/* Plain native date input, styled to look like a pill.
-                        Most reliable approach — every browser knows what to do
-                        with a real date input. The label above it shows the
-                        current value in human format. */}
-                    <span className="task-date-wrap">
-                      {t.due_date && <span className="task-date-prefix">Due</span>}
-                      <input
-                        type="date"
-                        className="task-date-input"
-                        value={t.due_date || ''}
-                        onChange={(e) => changeTaskDue(t.id, e.target.value)}
-                        title="Change due date"
-                      />
-                    </span>
+        {/* Composer */}
+        <div className="planner-composer">
+          <div className="planner-composer-left">
+            <textarea
+              value={composer}
+              onChange={(e) => setComposer(e.target.value)}
+              placeholder="What's on your mind? Type the task or update here…"
+              rows={4}
+            />
+            <div className="planner-composer-options">
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => setTaskOptionsOpen((v) => !v)}
+              >
+                {taskOptionsOpen ? '▾ Hide task options' : '▸ Task options'}
+              </button>
+              <span className="hint" style={{ marginLeft: 10 }}>
+                Assign to {assigneesLabel()} · Due {formatDate(taskDue)}
+              </span>
+            </div>
+            {taskOptionsOpen && (
+              <div className="planner-task-options">
+                <div>
+                  <label>Assign to (one or more)</label>
+                  <div className="assignee-chips">
+                    {team.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={`assignee-chip ${taskAssignees.includes(m.id) ? 'on' : ''}`}
+                        onClick={() => toggleAssignee(m.id)}
+                      >
+                        {taskAssignees.includes(m.id) ? '✓ ' : ''}{pickerLabel(m)}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-            {tasks.length >= 3 && (
-              <div className="hint" style={{ marginTop: 8, fontSize: 12 }}>
-                Scroll inside the box above — {tasks.length} tasks.
+                <div style={{ marginTop: 12 }}>
+                  <label>Due date</label>
+                  <input
+                    type="date"
+                    value={taskDue}
+                    onChange={(e) => setTaskDue(e.target.value)}
+                  />
+                </div>
               </div>
             )}
           </div>
-
-          {/* RIGHT: add-task form */}
-          <div className="split-pane-right">
-            <label>New task</label>
-            <textarea
-              className="task-add-text"
-              placeholder="Describe the task…"
-              value={newTask}
-              onChange={(e) => setNewTask(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addTask() }}
-              rows={3}
-            />
-            <div className="task-form-row" style={{ marginTop: 12 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <label>Assign to</label>
-                <select value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}>
-                  {team.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.id === user.id ? `Me (${m.full_name})` : m.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label>Due</label>
-                <input
-                  type="date"
-                  className="task-date-icon task-date-icon-lg"
-                  value={newTaskDue}
-                  onChange={(e) => setNewTaskDue(e.target.value)}
-                  title={newTaskDue ? `Due ${formatDate(newTaskDue)}` : 'Optional due date'}
-                />
-              </div>
-            </div>
-            {newTaskDue && (
-              <div className="hint" style={{ marginTop: 6, fontSize: 12 }}>
-                Hidden from dashboards until {formatDate(newTaskDue)}.{' '}
-                <button
-                  className="link-btn"
-                  onClick={() => setNewTaskDue('')}
-                >
-                  clear
-                </button>
-              </div>
-            )}
-            <button className="btn btn-primary btn-block" style={{ marginTop: 14 }} onClick={addTask}>
-              Push to planner
+          <div className="planner-composer-right">
+            <button className="btn btn-primary btn-block" onClick={pushTask}>
+              Push task to planner
             </button>
-            <div className="hint" style={{ marginTop: 8, fontSize: 12 }}>
-              Leave the due date blank to show immediately.
-            </div>
+            <button className="btn btn-accent btn-block" onClick={addUpdate}>
+              Add update
+            </button>
           </div>
         </div>
       </div>
 
-      {/* notes — two columns: scrollable list on left, add-note form on right */}
+      {/* OPEN TASKS + ACTIVITY TIMELINE */}
       <div className="card-pad" style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Notes & updates</h2>
-        <div className="hint" style={{ marginBottom: 12 }}>
-          Notes are timestamped and cannot be edited. The author can delete their own message within 24 hours.
-        </div>
+        <h2 style={{ fontSize: 18, marginBottom: 10 }}>
+          Open tasks <span className="section-count" style={{ marginLeft: 6 }}>{openTasks.length}</span>
+        </h2>
+        {openTasks.length === 0 && <div className="hint">No open tasks.</div>}
+        {openTasks.length > 0 && (
+          <div className={openTasks.length >= 3 ? 'planner-tasks-scroll' : ''}>
+            {openTasks.map((t) => {
+              const overdue = t.due_date && t.due_date < today
+              const names = (t.assigned_names && t.assigned_names.length > 0)
+                ? t.assigned_names.join(', ')
+                : (t.assigned_name || 'Unassigned')
+              return (
+                <div key={t.id} className="planner-task">
+                  <button
+                    className="task-check"
+                    onClick={() => startComplete(t)}
+                    aria-label="Complete task"
+                  />
+                  <div className="planner-task-body">
+                    <div className="planner-task-text">{t.text}</div>
+                    <div className="planner-task-meta">
+                      <span>👥 {names}</span>
+                      <span className={overdue ? 'overdue' : ''}>
+                        📅 Due {t.due_date ? formatDate(t.due_date) : '—'}
+                        {overdue ? ' (overdue)' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => deleteTask(t)}
+                    title="Delete task"
+                  >✕</button>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
-        <div className="split-pane">
-          {/* LEFT: notes list */}
-          <div className="split-pane-left">
-            <div className={`notes-list ${notes.length >= 3 ? 'notes-list-scroll' : ''}`}>
-              {notes.length === 0 && <div className="hint">No notes yet.</div>}
-              {notes.map((n) => {
+        <h2 style={{ fontSize: 18, marginTop: 22, marginBottom: 10 }}>Activity</h2>
+        <div className="hint" style={{ marginBottom: 10 }}>
+          All updates, task creations, and completions — newest first.
+        </div>
+        {events.length === 0 && <div className="hint">Nothing yet.</div>}
+        {events.length > 0 && (
+          <div className={events.length >= 3 ? 'activity-list-scroll' : ''}>
+            {events.map((ev) => {
+              if (ev.kind === 'note') {
+                const n = ev.note
                 const isDeleted = !!n.deleted_at
                 const isAuthor = n.author_id === user.id
                 const ageHours = (Date.now() - new Date(n.created_at).getTime()) / 3_600_000
                 const canDelete = isAuthor && !isDeleted && ageHours < 24
                 return (
-                  <div key={n.id} className={`note ${isDeleted ? 'note-deleted' : ''}`}>
-                    <div className="note-head">
-                      <span className="note-author">{n.author_name}</span>
-                      <span className="note-time">{formatTimestamp(n.created_at)}</span>
+                  <div key={ev.id} className={`activity-item ${isDeleted ? 'note-deleted' : ''}`}>
+                    <span className="activity-icon" title="Update">💬</span>
+                    <div className="activity-body">
+                      <div className="note-head">
+                        <span className="note-author">{n.author_name}</span>
+                        <span className="note-time">{formatTimestamp(n.created_at)}</span>
+                      </div>
+                      <div className="note-body">{n.body}</div>
+                      {canDelete && (
+                        <button
+                          className="btn btn-ghost btn-sm note-delete-btn"
+                          onClick={() => deleteNote(n.id)}
+                        >Delete</button>
+                      )}
                     </div>
-                    <div className="note-body">{n.body}</div>
-                    {canDelete && (
-                      <button
-                        className="btn btn-ghost btn-sm note-delete-btn"
-                        onClick={() => deleteNote(n.id)}
-                      >
-                        Delete
-                      </button>
-                    )}
                   </div>
                 )
-              })}
-            </div>
-            {notes.length >= 3 && (
-              <div className="hint" style={{ marginTop: 8, fontSize: 12 }}>
-                Scroll inside the box above — {notes.length} messages.
-              </div>
-            )}
+              }
+              if (ev.kind === 'task-created') {
+                const t = ev.task
+                const names = (t.assigned_names && t.assigned_names.length > 0)
+                  ? t.assigned_names.join(', ')
+                  : (t.assigned_name || 'Unassigned')
+                return (
+                  <div key={ev.id} className="activity-item activity-task">
+                    <span className="activity-icon" title="Task created">📌</span>
+                    <div className="activity-body">
+                      <div className="note-head">
+                        <span className="note-author">{t.created_by_name || 'Someone'} pushed a task</span>
+                        <span className="note-time">{formatTimestamp(t.created_at)}</span>
+                      </div>
+                      <div className="note-body">
+                        <strong>{t.text}</strong>
+                        <div className="hint" style={{ marginTop: 4 }}>
+                          To {names} · Due {t.due_date ? formatDate(t.due_date) : '—'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+              if (ev.kind === 'task-completed') {
+                const t = ev.task
+                return (
+                  <div key={ev.id} className="activity-item activity-completed">
+                    <span className="activity-icon" title="Task completed">✅</span>
+                    <div className="activity-body">
+                      <div className="note-head">
+                        <span className="note-author">{t.completed_by_name || 'Someone'} completed a task</span>
+                        <span className="note-time">{formatTimestamp(t.completed_at)}</span>
+                      </div>
+                      <div className="note-body">
+                        <span style={{ textDecoration: 'line-through', color: 'var(--ink-faint)' }}>{t.text}</span>
+                        {t.completion_note && (
+                          <div style={{ marginTop: 6 }}>{t.completion_note}</div>
+                        )}
+                        <button
+                          className="link-btn"
+                          style={{ marginTop: 6, fontSize: 12 }}
+                          onClick={() => reopenTask(t)}
+                        >Re-open task</button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            })}
           </div>
-
-          {/* RIGHT: add-note form */}
-          <div className="split-pane-right">
-            <label>Add a note</label>
-            <textarea
-              value={newNote}
-              onChange={(e) => setNewNote(e.target.value)}
-              placeholder="Add an update…"
-              rows={5}
-            />
-            <button className="btn btn-accent btn-block" style={{ marginTop: 10 }} onClick={postNote}>
-              Add note
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* schedule + property history — paired side-by-side at the bottom */}
@@ -556,6 +683,30 @@ export default function JobDetail() {
           <div className="row" style={{ marginTop: 16 }}>
             <button className="btn btn-danger btn-block" onClick={deleteJob}>Yes, delete</button>
             <button className="btn btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+          </div>
+        </Modal>
+      )}
+
+      {completing && (
+        <Modal onClose={() => setCompleting(null)}>
+          <h3>Complete task</h3>
+          <p style={{ color: 'var(--ink-soft)', fontSize: 14, marginTop: 6, marginBottom: 14 }}>
+            <strong>{completing.taskText}</strong>
+          </p>
+          <label>Add a note (what did you do?)</label>
+          <textarea
+            autoFocus
+            value={completionNote}
+            onChange={(e) => setCompletionNote(e.target.value)}
+            placeholder="e.g. Manager wants brown flooring."
+            rows={4}
+          />
+          <div className="hint" style={{ marginTop: 4, fontSize: 12 }}>
+            Leave blank to log it as "Completed."
+          </div>
+          <div className="row" style={{ marginTop: 16 }}>
+            <button className="btn btn-accent btn-block" onClick={confirmComplete}>Mark complete</button>
+            <button className="btn btn-ghost" onClick={() => setCompleting(null)}>Cancel</button>
           </div>
         </Modal>
       )}

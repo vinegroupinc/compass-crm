@@ -8,6 +8,15 @@ import {
 } from '../lib/constants'
 import { laToday } from '../lib/time'
 
+// True if the user is one of the task's assignees (handles both new
+// multi-assignee array and the legacy single-assignee column).
+function isAssignedTo(task, userId) {
+  if (task.assigned_user_ids && task.assigned_user_ids.length > 0) {
+    return task.assigned_user_ids.includes(userId)
+  }
+  return task.assigned_user_id === userId
+}
+
 // Compact card used everywhere on the dashboard. Drops mgmt/tech/dates;
 // shows status pill, job type, address, and (optionally) tasks assigned to
 // the current user. Used in Planner, Needs Attention, and every status window.
@@ -15,7 +24,7 @@ function CompactCard({ job, flag, userId }) {
   const today = laToday()
   const tasks = userId
     ? (job.tasks || []).filter(
-        (t) => t.assigned_user_id === userId && !t.done && (!t.due_date || t.due_date <= today)
+        (t) => isAssignedTo(t, userId) && !t.done && (!t.due_date || t.due_date <= today)
       )
     : []
   return (
@@ -55,7 +64,7 @@ export default function Dashboard() {
   // Planner: jobs with an open task assigned to me that's due now.
   const myJobs = active.filter((j) =>
     (j.tasks || []).some(
-      (t) => t.assigned_user_id === user.id && !t.done && isDueNow(t)
+      (t) => isAssignedTo(t, user.id) && !t.done && isDueNow(t)
     )
   )
 
