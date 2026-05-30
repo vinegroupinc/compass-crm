@@ -467,7 +467,17 @@ export default function JobDetail() {
               onChange={(e) => quickStatus(e.target.value)}
               aria-label="Change status"
             >
-              {STATUSES.map((s) => <option key={s}>{s}</option>)}
+              {STATUSES.map((s) => (
+                <option
+                  key={s}
+                  value={s}
+                  // Closed and No-Sale can only be set via the Close Job
+                  // button (which captures a note and an admin-log entry).
+                  disabled={(s === 'Closed' || s === 'No-Sale') && job.status !== s}
+                >
+                  {s}{(s === 'Closed' || s === 'No-Sale') ? ' — use Close Job button' : ''}
+                </option>
+              ))}
             </select>
           </span>
           <button
@@ -552,7 +562,15 @@ export default function JobDetail() {
               </div>
               <div><label>Status</label>
                 <select value={d.status} onChange={(e) => setDraft({ ...d, status: e.target.value })}>
-                  {STATUSES.map((s) => <option key={s}>{s}</option>)}
+                  {STATUSES.map((s) => (
+                    <option
+                      key={s}
+                      value={s}
+                      disabled={(s === 'Closed' || s === 'No-Sale') && d.status !== s}
+                    >
+                      {s}{(s === 'Closed' || s === 'No-Sale') ? ' — use Close Job button' : ''}
+                    </option>
+                  ))}
                 </select></div>
               <div className="field-full">
                 <ContactMultiSelect

@@ -223,7 +223,15 @@ export default function NewJob() {
           <div>
             <label>Status</label>
             <select value={form.status} onChange={(e) => set('status', e.target.value)}>
-              {STATUSES.map((s) => <option key={s}>{s}</option>)}
+              {STATUSES.map((s) => (
+                <option
+                  key={s}
+                  value={s}
+                  disabled={s === 'Closed' || s === 'No-Sale'}
+                >
+                  {s}{(s === 'Closed' || s === 'No-Sale') ? ' — set via Close Job after creation' : ''}
+                </option>
+              ))}
             </select>
           </div>
 

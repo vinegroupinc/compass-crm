@@ -23,7 +23,6 @@ export function setAdmin(on) {
 export default function AdminLogin() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
@@ -38,11 +37,11 @@ export default function AdminLogin() {
 
   function submit(e) {
     e.preventDefault()
-    if (username.trim() === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    if (password === ADMIN_PASSWORD) {
       setAdmin(true)
       navigate('/admin')
     } else {
-      setError('Incorrect username or password.')
+      setError('Incorrect password.')
     }
   }
 
@@ -53,22 +52,48 @@ export default function AdminLogin() {
         <div className="hint" style={{ marginBottom: 16 }}>
           Owner access. Closes when you close the tab.
         </div>
+        {/*
+          autoComplete="off" on the form + new-password on the input is the
+          standard trick to stop Chrome from offering the Compass account
+          password here. We also use unique, non-standard field names so
+          Chrome's heuristic password autofill won't match it to any saved
+          credential. Finally a hidden dummy field absorbs any aggressive
+          autofill before it reaches the real input.
+        */}
         <form method="post" onSubmit={submit} autoComplete="off">
+          <input
+            type="text"
+            name="prevent_autofill"
+            autoComplete="off"
+            style={{ display: 'none' }}
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+          <input
+            type="password"
+            name="prevent_autofill_pw"
+            autoComplete="new-password"
+            style={{ display: 'none' }}
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+
           <label>Username</label>
           <input
-            name="admin_username"
-            autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="off"
+            value="admin"
+            disabled
+            readOnly
+            style={{ background: '#f1f3f7', cursor: 'not-allowed' }}
           />
           <label style={{ marginTop: 12 }}>Password</label>
           <input
-            name="admin_password"
+            name="compass_admin_pw_x9k"
             type="password"
+            autoFocus
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            autoComplete="off"
+            spellCheck={false}
           />
           {error && (
             <div style={{ color: 'var(--attention)', fontSize: 13, marginTop: 10 }}>{error}</div>
