@@ -896,6 +896,30 @@ a { color: inherit; text-decoration: none; }
   .desktop-nav { display: none; }
   .form-grid { grid-template-columns: 1fr; } /* everything stacks, no side scroll */
   .page-head h1 { font-size: 23px; }
+
+  /* Job page header: stack title above action buttons so the address gets full
+     width and doesn't get crammed into a narrow column. */
+  .job-head { flex-direction: column; align-items: stretch; }
+  .job-head h1 {
+    word-break: break-word;       /* let very long addresses wrap naturally */
+    overflow-wrap: break-word;
+    hyphens: none;
+  }
+  .job-head-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  /* Native date inputs render slightly wider than expected on iOS — make
+     sure they never push past the card edge. */
+  input[type="date"] {
+    width: 100%;
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+  /* Tasks list pill stays a fixed icon-sized chip on mobile, not full width */
+  .task-date-wrap, .task-date-icon { width: auto; }
   .bottom-nav {
     display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
     background: rgba(255,255,255,.94); backdrop-filter: blur(10px);
