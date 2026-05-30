@@ -119,7 +119,7 @@ export default function Dashboard() {
     })
 
   const nothing = active.length === 0
-  const plannerScrolls = totalPlanner >= 4
+  const plannerScrolls = totalPlanner >= 4   // show 3 full, scroll from 4th on
   const attentionScrolls = attention.length >= 3
 
   return (

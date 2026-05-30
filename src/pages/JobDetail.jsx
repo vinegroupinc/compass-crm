@@ -701,63 +701,68 @@ export default function JobDetail() {
           <button className="btn btn-accent btn-sm" style={{ marginTop: 14 }} onClick={saveSchedule}>
             Save schedule
           </button>
+        </div>
 
-          {/* Per-job scheduled events: discrete entries (e.g. "Reglaze at 2pm") */}
-          <div style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontSize: 15, margin: 0, fontWeight: 700 }}>Calendar events</h3>
-              {!addingEvent && (
-                <button className="btn btn-ghost btn-sm" onClick={() => setAddingEvent(true)}>+ Add</button>
-              )}
-            </div>
-            <div className="hint" style={{ marginTop: 4 }}>
-              One-off entries that show on the calendar (e.g. a sub coming on a specific day).
-            </div>
+        <div className="bottom-right-stack">
 
-            {(() => {
-              const jobEvents = (scheduledEvents || [])
-                .filter((e) => e.job_id === job.id)
-                .sort((a, b) => (a.event_date + (a.event_time || '')).localeCompare(b.event_date + (b.event_time || '')))
-              if (jobEvents.length === 0 && !addingEvent) {
-                return <div className="hint" style={{ marginTop: 8 }}>No events yet.</div>
-              }
-              return jobEvents.map((ev) => (
-                <div key={ev.id} className="list-item" style={{ marginTop: 8 }}>
-                  <div className="name">
-                    {ev.event_time ? formatTime(ev.event_time) + ' · ' : ''}{ev.title}
-                    <div className="hint" style={{ marginTop: 4 }}>{formatDate(ev.event_date)}</div>
-                  </div>
-                  <button className="btn btn-ghost btn-sm" onClick={() => removeEvent(ev)}>✕</button>
-                </div>
-              ))
-            })()}
-
-            {addingEvent && (
-              <div style={{ marginTop: 12, padding: 12, background: '#fafbfc', border: '1px solid var(--line)', borderRadius: 8 }}>
-                <label>Title</label>
-                <input
-                  autoFocus
-                  value={eventTitle}
-                  onChange={(e) => setEventTitle(e.target.value)}
-                  placeholder="e.g. Reglaze"
-                />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-                  <div>
-                    <label>Date</label>
-                    <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
-                  </div>
-                  <div>
-                    <label>Start time</label>
-                    <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
-                  </div>
-                </div>
-                <div className="row" style={{ marginTop: 12 }}>
-                  <button className="btn btn-accent btn-sm btn-block" onClick={addEventToJob}>Save event</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => { setAddingEvent(false); setEventTitle(''); setEventTime('') }}>Cancel</button>
-                </div>
-              </div>
+        <div className="card-pad">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <h2 style={{ fontSize: 18, margin: 0 }}>Schedule a day event</h2>
+            {!addingEvent && (
+              <button className="btn btn-ghost btn-sm" onClick={() => setAddingEvent(true)}>+ Add</button>
             )}
           </div>
+          <div className="hint" style={{ marginBottom: 12 }}>
+            One-off entries that show on the calendar (e.g. a sub coming on a specific day).
+          </div>
+
+          {(() => {
+            const jobEvents = (scheduledEvents || [])
+              .filter((e) => e.job_id === job.id)
+              .sort((a, b) => (a.event_date + (a.event_time || '')).localeCompare(b.event_date + (b.event_time || '')))
+            if (jobEvents.length === 0 && !addingEvent) {
+              return <div className="hint">No events yet.</div>
+            }
+            return (
+              <div className={jobEvents.length >= 2 ? 'day-events-scroll' : ''}>
+                {jobEvents.map((ev) => (
+                  <div key={ev.id} className="list-item" style={{ marginTop: 0, marginBottom: 8 }}>
+                    <div className="name">
+                      {ev.event_time ? formatTime(ev.event_time) + ' · ' : ''}{ev.title}
+                      <div className="hint" style={{ marginTop: 4 }}>{formatDate(ev.event_date)}</div>
+                    </div>
+                    <button className="btn btn-ghost btn-sm" onClick={() => removeEvent(ev)}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+
+          {addingEvent && (
+            <div style={{ marginTop: 12, padding: 12, background: '#fafbfc', border: '1px solid var(--line)', borderRadius: 8 }}>
+              <label>Title</label>
+              <input
+                autoFocus
+                value={eventTitle}
+                onChange={(e) => setEventTitle(e.target.value)}
+                placeholder="e.g. Reglaze"
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+                <div>
+                  <label>Date</label>
+                  <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                </div>
+                <div>
+                  <label>Start time</label>
+                  <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
+                </div>
+              </div>
+              <div className="row" style={{ marginTop: 12 }}>
+                <button className="btn btn-accent btn-sm btn-block" onClick={addEventToJob}>Save event</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setAddingEvent(false); setEventTitle(''); setEventTime('') }}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="card-pad">
@@ -779,6 +784,8 @@ export default function JobDetail() {
             View Full Property History →
           </Link>
         </div>
+
+        </div> {/* end bottom-right-stack */}
       </div>
 
       {/* Danger Zone — separated and clearly marked so deletion is deliberate. */}

@@ -199,11 +199,12 @@ a { color: inherit; text-decoration: none; }
 }
 .planner-window-body { padding: 14px; }
 .planner-window-scroll {
-  max-height: 360px;
+  /* Roughly 3 task rows tall on desktop. 4th and beyond require scroll. */
+  max-height: 260px;
   overflow-y: auto;
 }
 @media (max-width: 759px) {
-  .planner-window-scroll { max-height: 300px; }
+  .planner-window-scroll { max-height: 240px; }
 }
 
 /* Banner at the top of the Attention window (instead of a "Needs Attention"
@@ -869,15 +870,32 @@ a { color: inherit; text-decoration: none; }
   text-decoration: underline;
 }
 
-/* Bottom grid: Schedule + Property History side by side on desktop, stack on mobile */
+/* Bottom grid: Schedule on the left, a vertical stack on the right
+   (Schedule a day event + Property History). Stacks on mobile. */
 .bottom-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-bottom: 16px;
+  align-items: start;
 }
 @media (max-width: 759px) {
   .bottom-grid { grid-template-columns: 1fr; }
+}
+
+/* Right column stacks two cards vertically. */
+.bottom-right-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Day events list: shows ~1 event height by default; once 2+ events exist,
+   the box becomes scrollable so the card doesn't grow tall on busy jobs. */
+.day-events-scroll {
+  max-height: 88px;        /* ~one event's height */
+  overflow-y: auto;
+  padding-right: 4px;       /* room for the scrollbar */
 }
 
 /* ---------- address autocomplete ---------- */
