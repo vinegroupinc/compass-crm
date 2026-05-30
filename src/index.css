@@ -438,6 +438,47 @@ a { color: inherit; text-decoration: none; }
 .note-delete-btn { margin-top: 8px; color: var(--attention); }
 
 /* ---------- Job Planner ---------- */
+/* Composer header: title left, mode toggle right */
+.composer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.composer-toggle {
+  display: inline-flex;
+  background: #f1f3f7;
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+.composer-toggle-btn {
+  background: transparent;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+.composer-toggle-btn:hover { color: var(--ink); }
+.composer-toggle-btn.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+}
+
+/* When nothing's picked yet, the composer body looks muted */
+.composer-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+/* Re-enable buttons inside even when the body is disabled? No — we want
+   the textarea inert AND the buttons inert, since both rely on the choice. */
+
 /* Composer: textarea on left, two stacked action buttons on right */
 .planner-composer {
   display: grid;

@@ -30,8 +30,9 @@ export default function JobDetail() {
   const [taskDue, setTaskDue] = useState(() => laToday())
   // Multi-assignee: default to just me
   const [taskAssignees, setTaskAssignees] = useState([user.id])
-  // Whether the "assignees + due date" expander is open
-  const [taskOptionsOpen, setTaskOptionsOpen] = useState(false)
+  // What the composer is currently doing: null = nothing chosen yet,
+  // 'task' = pushing a task, 'note' = posting an update.
+  const [composerMode, setComposerMode] = useState(null)
   // Active completion modal: holds the task being completed, plus the note draft
   const [completing, setCompleting] = useState(null) // { taskId, taskText } | null
   const [completionNote, setCompletionNote] = useState('')
@@ -137,6 +138,7 @@ export default function JobDetail() {
     try {
       await db.addNote(job.id, text, user.id, user.name)
       setComposer('')
+      setComposerMode(null)
       await load()
       flash('Update added')
     } catch (e) { flash(e?.message || 'Could not add update') }
@@ -161,6 +163,7 @@ export default function JobDetail() {
         createdByName: user.name,
       })
       setComposer('')
+      setComposerMode(null)
       // Keep the assignees + date so a quick second task can use the same context;
       // a fresh "today" date is more useful than carrying yesterday over though,
       // so reset the date if it's now in the past.
@@ -422,35 +425,54 @@ export default function JobDetail() {
         )}
       </div>
 
-      {/* JOB PLANNER — composer at top, open tasks + activity timeline below */}
+      {/* COMPOSER — "Create a Task & Leave a Note" with mode toggle */}
       <div className="card-pad" style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, marginBottom: 4 }}>Job Planner</h2>
-        <div className="hint" style={{ marginBottom: 14 }}>
-          Type once, choose to push as a task (with assignee + due date) or post as an update.
+        <div className="composer-head">
+          <h2 style={{ fontSize: 18, margin: 0 }}>Create a Task &amp; Leave a Note</h2>
+          <div className="composer-toggle" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={composerMode === 'task'}
+              className={`composer-toggle-btn ${composerMode === 'task' ? 'on' : ''}`}
+              onClick={() => setComposerMode('task')}
+            >
+              Create a task
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={composerMode === 'note'}
+              className={`composer-toggle-btn ${composerMode === 'note' ? 'on' : ''}`}
+              onClick={() => setComposerMode('note')}
+            >
+              Leave a note
+            </button>
+          </div>
         </div>
 
-        {/* Composer */}
-        <div className="planner-composer">
+        {composerMode === null && (
+          <div className="hint" style={{ marginTop: 8, marginBottom: 14 }}>
+            Pick "Create a task" or "Leave a note" above to get started.
+          </div>
+        )}
+
+        <div className={`planner-composer ${composerMode === null ? 'composer-disabled' : ''}`} style={{ marginTop: 14 }}>
           <div className="planner-composer-left">
             <textarea
               value={composer}
               onChange={(e) => setComposer(e.target.value)}
-              placeholder="What's on your mind? Type the task or update here…"
+              placeholder={
+                composerMode === 'task'
+                  ? 'Describe the task…'
+                  : composerMode === 'note'
+                    ? 'Write your update…'
+                    : 'Pick "Create a task" or "Leave a note" first'
+              }
               rows={4}
+              disabled={composerMode === null}
             />
-            <div className="planner-composer-options">
-              <button
-                type="button"
-                className="link-btn"
-                onClick={() => setTaskOptionsOpen((v) => !v)}
-              >
-                {taskOptionsOpen ? '▾ Hide task options' : '▸ Task options'}
-              </button>
-              <span className="hint" style={{ marginLeft: 10 }}>
-                Assign to {assigneesLabel()} · Due {formatDate(taskDue)}
-              </span>
-            </div>
-            {taskOptionsOpen && (
+            {composerMode === 'task' && (
               <div className="planner-task-options">
                 <div>
                   <label>Assign to (one or more)</label>
@@ -479,11 +501,19 @@ export default function JobDetail() {
             )}
           </div>
           <div className="planner-composer-right">
-            <button className="btn btn-primary btn-block" onClick={pushTask}>
+            <button
+              className="btn btn-primary btn-block"
+              onClick={pushTask}
+              disabled={composerMode !== 'task'}
+            >
               Push task to planner
             </button>
-            <button className="btn btn-accent btn-block" onClick={addUpdate}>
-              Add update
+            <button
+              className="btn btn-accent btn-block"
+              onClick={addUpdate}
+              disabled={composerMode !== 'note'}
+            >
+              Post note
             </button>
           </div>
         </div>
@@ -492,7 +522,7 @@ export default function JobDetail() {
       {/* OPEN TASKS + ACTIVITY TIMELINE */}
       <div className="card-pad" style={{ marginBottom: 16 }}>
         <h2 style={{ fontSize: 18, marginBottom: 10 }}>
-          Open tasks <span className="section-count" style={{ marginLeft: 6 }}>{openTasks.length}</span>
+          Job Planner <span className="section-count" style={{ marginLeft: 6 }}>{openTasks.length}</span>
         </h2>
         {openTasks.length === 0 && <div className="hint">No open tasks.</div>}
         {openTasks.length > 0 && (
