@@ -6,26 +6,11 @@ import {
   HIDDEN_FROM_DASHBOARD,
   ACTIVE_STATUS_ORDER,
 } from '../lib/constants'
-import { laToday } from '../lib/time'
+import { laToday, formatDate } from '../lib/time'
 
 // True if the user is one of the task's assignees (handles both new
 // multi-assignee array and the legacy single-assignee column).
 function isAssignedTo(task, userId) {
-  // TEMP DIAGNOSTIC — log assignment fields so we can see what Supabase returns
-  if (typeof window !== 'undefined' && !window.__loggedTasks) window.__loggedTasks = new Set()
-  if (typeof window !== 'undefined' && !window.__loggedTasks.has(task.id)) {
-    window.__loggedTasks.add(task.id)
-    // eslint-disable-next-line no-console
-    console.log('[task assignment]', {
-      taskId: task.id,
-      text: task.text,
-      assigned_user_ids: task.assigned_user_ids,
-      assigned_user_id: task.assigned_user_id,
-      checking_for_userId: userId,
-      includes_in_array: task.assigned_user_ids?.includes(userId),
-      legacy_match: task.assigned_user_id === userId,
-    })
-  }
   if (task.assigned_user_ids && task.assigned_user_ids.length > 0) {
     return task.assigned_user_ids.includes(userId)
   }
@@ -65,6 +50,28 @@ function CompactCard({ job, flag, userId }) {
   )
 }
 
+// A single task row in the Planner. Click → opens the job. Future tasks are
+// greyed but still clickable so the user can jump in and edit context.
+function PlannerTaskRow({ task, job, bucket }) {
+  const dueLabel = task.due_date
+    ? (bucket === 'today' ? 'Today' : formatDate(task.due_date))
+    : 'No date'
+  return (
+    <Link to={`/job/${job.id}`} className={`planner-task-row planner-task-${bucket}`}>
+      <div className="planner-task-row-text">{task.text}</div>
+      <div className="planner-task-row-meta">
+        <span className="planner-task-row-addr">
+          {job.street_address}{job.unit ? ` · Unit ${job.unit}` : ''}
+        </span>
+        <span className="planner-task-row-due">
+          {bucket === 'overdue' && '⚠ '}
+          {dueLabel}
+        </span>
+      </div>
+    </Link>
+  )
+}
+
 export default function Dashboard() {
   const { jobs, loading, error } = useData()
   const { user } = useAuth()
@@ -74,23 +81,32 @@ export default function Dashboard() {
 
   const active = jobs.filter((j) => !HIDDEN_FROM_DASHBOARD.includes(j.status))
   const today = laToday()
-  const isDueNow = (t) => !t.due_date || t.due_date <= today
 
-  // Planner: jobs with an open task assigned to me that's due now.
-  const myJobs = active.filter((j) =>
-    (j.tasks || []).some(
-      (t) => isAssignedTo(t, user.id) && !t.done && isDueNow(t)
-    )
-  )
+  // Build the planner list: every open task assigned to me, across all jobs.
+  // Bucketed into overdue, today, and future. Each bucket sorted by date.
+  const myOpenTasks = []
+  for (const j of active) {
+    for (const t of (j.tasks || [])) {
+      if (!t.done && isAssignedTo(t, user.id)) {
+        myOpenTasks.push({ task: t, job: j })
+      }
+    }
+  }
+  const overdueTasks = myOpenTasks
+    .filter((x) => x.task.due_date && x.task.due_date < today)
+    .sort((a, b) => a.task.due_date.localeCompare(b.task.due_date))
+  const todayTasks = myOpenTasks
+    .filter((x) => !x.task.due_date || x.task.due_date === today)
+  const futureTasks = myOpenTasks
+    .filter((x) => x.task.due_date && x.task.due_date > today)
+    .sort((a, b) => a.task.due_date.localeCompare(b.task.due_date))
+  const totalPlanner = overdueTasks.length + todayTasks.length + futureTasks.length
 
-  // Needs Attention: jobs flagged as such. Independent of Planner.
+  // Needs Attention: jobs flagged as such. Always render the window.
   const attention = active.filter((j) => j.needs_attention)
 
   // Every active status, always shown — even empty ones — so the dashboard
-  // layout is consistent day-to-day. Jobs are not de-duplicated; a job in
-  // Planner / Needs Attention also still shows in its status window.
-  // Sort: status windows with jobs come first, empty ones pushed to the bottom.
-  // Within each group, canonical ACTIVE_STATUS_ORDER is preserved (sort is stable).
+  // layout is consistent day-to-day. Sort: non-empty first.
   const byStatus = ACTIVE_STATUS_ORDER
     .map((status) => ({
       status,
@@ -103,8 +119,8 @@ export default function Dashboard() {
     })
 
   const nothing = active.length === 0
-  // Split top into 2 columns only when BOTH have items
-  const bothTop = myJobs.length > 0 && attention.length > 0
+  const plannerScrolls = totalPlanner >= 4
+  const attentionScrolls = attention.length >= 3
 
   return (
     <>
@@ -118,46 +134,76 @@ export default function Dashboard() {
 
       {nothing && <div className="empty">No active jobs yet. Tap "New Job" to add the first one.</div>}
 
-      {/* PLANNER SECTION — header, then Planner card + Needs Attention card
-          side-by-side (or single full-width when only one has items). */}
-      {(myJobs.length > 0 || attention.length > 0) && (
-        <section className="planner-section">
-          <div className="section-head">
-            <span className="section-rail rail-mine" />
-            <h2>Planner</h2>
+      {/* PLANNER SECTION — always shown, two windows side-by-side */}
+      <section className="planner-section">
+        <div className="section-head">
+          <span className="section-rail rail-mine" />
+          <h2>Planner</h2>
+        </div>
+
+        <div className="planner-grid">
+          {/* My tasks window */}
+          <div className="planner-window">
+            <div className={`planner-window-body ${plannerScrolls ? 'planner-window-scroll' : ''}`}>
+              {totalPlanner === 0 ? (
+                <div className="hint" style={{ padding: '6px 4px' }}>Nothing to show here…</div>
+              ) : (
+                <>
+                  {overdueTasks.length > 0 && (
+                    <>
+                      <div className="planner-group-label planner-group-overdue">Overdue</div>
+                      <div className="planner-stack">
+                        {overdueTasks.map(({ task, job }) => (
+                          <PlannerTaskRow key={task.id} task={task} job={job} bucket="overdue" />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {todayTasks.length > 0 && (
+                    <>
+                      <div className="planner-group-label" style={{ marginTop: overdueTasks.length > 0 ? 14 : 0 }}>Today</div>
+                      <div className="planner-stack">
+                        {todayTasks.map(({ task, job }) => (
+                          <PlannerTaskRow key={task.id} task={task} job={job} bucket="today" />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {futureTasks.length > 0 && (
+                    <>
+                      <div className="planner-group-label" style={{ marginTop: (overdueTasks.length + todayTasks.length) > 0 ? 14 : 0 }}>Upcoming</div>
+                      <div className="planner-stack">
+                        {futureTasks.map(({ task, job }) => (
+                          <PlannerTaskRow key={task.id} task={task} job={job} bucket="future" />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
-          <div className={bothTop ? 'planner-grid' : ''}>
-            {myJobs.length > 0 && (
-              <div className="planner-window">
-                <div className={`planner-window-body ${myJobs.length >= 2 ? 'planner-window-scroll' : ''}`}>
-                  <div className="planner-stack">
-                    {myJobs.map((j) => (
-                      <CompactCard key={j.id} job={j} flag="mine" userId={user.id} />
-                    ))}
-                  </div>
+          {/* Needs Attention window — always shown */}
+          <div className="planner-window attention-window">
+            <div className="attention-banner">
+              <span className="attention-banner-icon">🚨</span>
+              <span>Items that need immediate attention</span>
+            </div>
+            <div className={`planner-window-body ${attentionScrolls ? 'planner-window-scroll' : ''}`}>
+              {attention.length === 0 ? (
+                <div className="hint" style={{ padding: '6px 4px' }}>Nothing to show here…</div>
+              ) : (
+                <div className="planner-stack">
+                  {attention.map((j) => (
+                    <CompactCard key={j.id} job={j} flag="attention" />
+                  ))}
                 </div>
-              </div>
-            )}
-
-            {attention.length > 0 && (
-              <div className="planner-window attention-window">
-                <div className="attention-banner">
-                  <span className="attention-banner-icon">🚨</span>
-                  <span>Items that need immediate attention</span>
-                </div>
-                <div className={`planner-window-body ${attention.length >= 3 ? 'planner-window-scroll' : ''}`}>
-                  <div className="planner-stack">
-                    {attention.map((j) => (
-                      <CompactCard key={j.id} job={j} flag="attention" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* SEPARATOR + ALL ACTIVE JOBS HEADER */}
       <div className="all-jobs-divider" />

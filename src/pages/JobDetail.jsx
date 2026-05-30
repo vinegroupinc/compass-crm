@@ -6,12 +6,12 @@ import { useAuth } from '../context/AuthContext'
 import { StatusBadge, Toast, Modal } from '../components/UI'
 import { ContactMultiSelect } from '../components/ContactMultiSelect'
 import { JOB_TYPES, STATUSES, STATUS_COLORS } from '../lib/constants'
-import { formatTimestamp, formatDate, laToday } from '../lib/time'
+import { formatTimestamp, formatDate, formatTime, laToday } from '../lib/time'
 
 export default function JobDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { clients, technicians, subcontractors, team, refresh } = useData()
+  const { clients, technicians, subcontractors, team, events, refresh } = useData()
   const { user } = useAuth()
 
   const [job, setJob] = useState(null)
@@ -36,6 +36,12 @@ export default function JobDetail() {
   // Active completion modal: holds the task being completed, plus the note draft
   const [completing, setCompleting] = useState(null) // { taskId, taskText } | null
   const [completionNote, setCompletionNote] = useState('')
+
+  // Inline form for adding a scheduled event from this job's Schedule card
+  const [eventTitle, setEventTitle] = useState('')
+  const [eventDate, setEventDate] = useState(() => laToday())
+  const [eventTime, setEventTime] = useState('')
+  const [addingEvent, setAddingEvent] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -120,6 +126,32 @@ export default function JobDetail() {
       })
       await load(); await refresh(); flash('Schedule updated')
     } catch (e) { flash(e?.message || 'Could not update schedule') }
+  }
+
+  async function addEventToJob() {
+    if (!eventTitle.trim()) { flash('Give the event a name'); return }
+    if (!eventDate) { flash('Pick a date'); return }
+    try {
+      await db.addScheduledEvent({
+        jobId: job.id,
+        title: eventTitle,
+        eventDate, eventTime,
+        createdBy: user.id, createdByName: user.name,
+      })
+      setEventTitle(''); setEventTime(''); setEventDate(laToday())
+      setAddingEvent(false)
+      await refresh()
+      flash('Event added')
+    } catch (e) { flash(e?.message || 'Could not add event') }
+  }
+
+  async function removeEvent(ev) {
+    if (!confirm('Delete this event?')) return
+    try {
+      await db.deleteScheduledEvent(ev.id)
+      await refresh()
+      flash('Event deleted')
+    } catch (e) { flash(e?.message || 'Failed') }
   }
 
   async function deleteJob() {
@@ -669,6 +701,63 @@ export default function JobDetail() {
           <button className="btn btn-accent btn-sm" style={{ marginTop: 14 }} onClick={saveSchedule}>
             Save schedule
           </button>
+
+          {/* Per-job scheduled events: discrete entries (e.g. "Reglaze at 2pm") */}
+          <div style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ fontSize: 15, margin: 0, fontWeight: 700 }}>Calendar events</h3>
+              {!addingEvent && (
+                <button className="btn btn-ghost btn-sm" onClick={() => setAddingEvent(true)}>+ Add</button>
+              )}
+            </div>
+            <div className="hint" style={{ marginTop: 4 }}>
+              One-off entries that show on the calendar (e.g. a sub coming on a specific day).
+            </div>
+
+            {(() => {
+              const jobEvents = (events || [])
+                .filter((e) => e.job_id === job.id)
+                .sort((a, b) => (a.event_date + (a.event_time || '')).localeCompare(b.event_date + (b.event_time || '')))
+              if (jobEvents.length === 0 && !addingEvent) {
+                return <div className="hint" style={{ marginTop: 8 }}>No events yet.</div>
+              }
+              return jobEvents.map((ev) => (
+                <div key={ev.id} className="list-item" style={{ marginTop: 8 }}>
+                  <div className="name">
+                    {ev.event_time ? formatTime(ev.event_time) + ' · ' : ''}{ev.title}
+                    <div className="hint" style={{ marginTop: 4 }}>{formatDate(ev.event_date)}</div>
+                  </div>
+                  <button className="btn btn-ghost btn-sm" onClick={() => removeEvent(ev)}>✕</button>
+                </div>
+              ))
+            })()}
+
+            {addingEvent && (
+              <div style={{ marginTop: 12, padding: 12, background: '#fafbfc', border: '1px solid var(--line)', borderRadius: 8 }}>
+                <label>Title</label>
+                <input
+                  autoFocus
+                  value={eventTitle}
+                  onChange={(e) => setEventTitle(e.target.value)}
+                  placeholder="e.g. Reglaze"
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+                  <div>
+                    <label>Date</label>
+                    <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label>Start time</label>
+                    <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
+                  </div>
+                </div>
+                <div className="row" style={{ marginTop: 12 }}>
+                  <button className="btn btn-accent btn-sm btn-block" onClick={addEventToJob}>Save event</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setAddingEvent(false); setEventTitle(''); setEventTime('') }}>Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="card-pad">

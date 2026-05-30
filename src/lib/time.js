@@ -100,3 +100,14 @@ export function addDays(iso, n) {
 }
 
 export { TZ }
+
+// Format a "HH:MM" or "HH:MM:SS" string into 12-hour clock (e.g. "2:30pm").
+export function formatTime(t) {
+  if (!t) return ''
+  const [hStr, m] = t.split(':')
+  let h = parseInt(hStr, 10)
+  const suffix = h >= 12 ? 'pm' : 'am'
+  if (h === 0) h = 12
+  else if (h > 12) h -= 12
+  return `${h}:${(m || '00').padStart(2, '0')}${suffix}`
+}

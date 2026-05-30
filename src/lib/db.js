@@ -350,3 +350,39 @@ export async function deleteOwnNote(id, authorName) {
   if (error) throw error
   return data
 }
+
+/* ---------------------- SCHEDULED EVENTS ----------------------- */
+// One-off calendar events tied to a specific job (a sub doing work
+// on a particular day, a punch-list visit, etc.). Distinct from a
+// job's overall start_date / end_date range.
+
+export async function getScheduledEvents() {
+  const { data, error } = await supabase
+    .from('scheduled_events')
+    .select('*')
+    .order('event_date', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function addScheduledEvent({ jobId, title, eventDate, eventTime, createdBy, createdByName }) {
+  const { data, error } = await supabase
+    .from('scheduled_events')
+    .insert({
+      job_id: jobId,
+      title: title.trim(),
+      event_date: eventDate,
+      event_time: eventTime || null,
+      created_by: createdBy || null,
+      created_by_name: createdByName || null,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteScheduledEvent(id) {
+  const { error } = await supabase.from('scheduled_events').delete().eq('id', id)
+  if (error) throw error
+}

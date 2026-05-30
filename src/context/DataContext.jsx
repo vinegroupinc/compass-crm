@@ -9,20 +9,23 @@ export function DataProvider({ children }) {
   const [jobs, setJobs] = useState([])
   const [contacts, setContacts] = useState([])
   const [team, setTeam] = useState([])
+  const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const refresh = useCallback(async () => {
     try {
       setError('')
-      const [j, c, tm] = await Promise.all([
+      const [j, c, tm, ev] = await Promise.all([
         db.getJobs(),
         db.getContacts(),
         db.getTeamMembers(),
+        db.getScheduledEvents(),
       ])
       setJobs(j)
       setContacts(c)
       setTeam(tm)
+      setEvents(ev)
     } catch (e) {
       setError(e?.message || 'Could not load data.')
     } finally {
@@ -49,7 +52,7 @@ export function DataProvider({ children }) {
     <DataCtx.Provider
       value={{
         jobs, contacts, clients, technicians, subcontractors,
-        team, loading, error, refresh, staleJobs,
+        team, events, loading, error, refresh, staleJobs,
       }}
     >
       {children}
