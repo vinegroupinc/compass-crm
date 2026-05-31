@@ -149,7 +149,7 @@ export default function NewJob() {
               value={form.street_address}
               onChange={(v) => set('street_address', v)}
               knownAddresses={addresses}
-              placeholder="1253 Vine St Los Angeles, CA 90038"
+              placeholder="e.g. 1253 Vine St Los Angeles, CA 90038"
             />
             <div className="hint" style={{ color: 'var(--attention)', fontWeight: 700 }}>
               DO NOT PUT UNIT NUMBER ON PROPERTY ADDRESS LINE!
