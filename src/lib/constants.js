@@ -2,7 +2,7 @@
 
 export const STATUSES = [
   'New Lead',
-  'Waiting Scope',
+  'Waiting Site Visit',
   'Estimate Needed',
   'Estimate Sent',
   'Approved',
@@ -36,7 +36,7 @@ export const ACTIVE_STATUS_ORDER = STATUSES.filter(
 // Color tokens per status (used for badges). All readable on white.
 export const STATUS_COLORS = {
   'New Lead': '#6b7280',
-  'Waiting Scope': '#8b5cf6',
+  'Waiting Site Visit': '#8b5cf6',
   'Estimate Needed': '#d97706',
   'Estimate Sent': '#0891b2',
   Approved: '#0d9488',

@@ -475,7 +475,7 @@ export default function JobDetail() {
                   // button (which captures a note and an admin-log entry).
                   disabled={(s === 'Closed' || s === 'No-Sale') && job.status !== s}
                 >
-                  {s}{(s === 'Closed' || s === 'No-Sale') ? ' — use Close Job button' : ''}
+                  {s}
                 </option>
               ))}
             </select>
@@ -568,7 +568,7 @@ export default function JobDetail() {
                       value={s}
                       disabled={(s === 'Closed' || s === 'No-Sale') && d.status !== s}
                     >
-                      {s}{(s === 'Closed' || s === 'No-Sale') ? ' — use Close Job button' : ''}
+                      {s}
                     </option>
                   ))}
                 </select></div>
