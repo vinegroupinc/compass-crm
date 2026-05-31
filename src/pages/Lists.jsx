@@ -19,6 +19,7 @@ function typeBadges(c) {
 function AddContactModal({ onClose, onSave }) {
   const [name, setName] = useState('')
   const [types, setTypes] = useState({ is_client: false, is_technician: false, is_subcontractor: false })
+  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function save() {
@@ -26,7 +27,7 @@ function AddContactModal({ onClose, onSave }) {
     if (!types.is_client && !types.is_technician && !types.is_subcontractor) return
     setBusy(true)
     try {
-      await onSave({ name: name.trim(), ...types })
+      await onSave({ name: name.trim(), ...types, note: note.trim() || null })
       onClose()
     } finally { setBusy(false) }
   }
@@ -57,6 +58,14 @@ function AddContactModal({ onClose, onSave }) {
           ))}
         </div>
       </div>
+      <div style={{ marginTop: 14 }}>
+        <label>Note (optional)</label>
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="e.g. Reglazing, paint, flooring…"
+        />
+      </div>
       <div className="row" style={{ marginTop: 18 }}>
         <button className="btn btn-accent btn-block" disabled={busy || !name.trim() || (!types.is_client && !types.is_technician && !types.is_subcontractor)} onClick={save}>
           {busy ? 'Saving…' : 'Save contact'}
@@ -77,12 +86,13 @@ function EditContactModal({ contact, onClose, onSave, onDelete }) {
     is_technician: contact.is_technician,
     is_subcontractor: contact.is_subcontractor,
   })
+  const [note, setNote] = useState(contact.note || '')
   const [busy, setBusy] = useState(false)
 
   async function save() {
     setBusy(true)
     try {
-      await onSave(contact.id, { name: name.trim(), ...types })
+      await onSave(contact.id, { name: name.trim(), ...types, note: note.trim() || null })
       onClose()
     } finally { setBusy(false) }
   }
@@ -121,6 +131,14 @@ function EditContactModal({ contact, onClose, onSave, onDelete }) {
           ))}
         </div>
       </div>
+      <div style={{ marginTop: 14 }}>
+        <label>Note (optional)</label>
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="e.g. Reglazing, paint, flooring…"
+        />
+      </div>
       <div className="row" style={{ marginTop: 18 }}>
         <button className="btn btn-accent btn-block" disabled={busy || !name.trim()} onClick={save}>
           {busy ? 'Saving…' : 'Save'}
@@ -138,7 +156,16 @@ function ContactDetailModal({ contact, jobs, onClose }) {
   return (
     <Modal onClose={onClose}>
       <h3>{contact.name}</h3>
-      <div style={{ marginTop: 4, marginBottom: 14 }}>{typeBadges(contact)}</div>
+      <div style={{ marginTop: 4, marginBottom: 10 }}>{typeBadges(contact)}</div>
+      {contact.note && (
+        <div style={{
+          padding: '8px 10px', background: '#fafbfc',
+          border: '1px solid var(--line)', borderRadius: 6,
+          fontSize: 13, color: 'var(--ink)', marginBottom: 12,
+        }}>
+          {contact.note}
+        </div>
+      )}
       <div className="hint" style={{ marginBottom: 10 }}>
         {jobs.length === 0
           ? 'No jobs associated with this contact yet.'
@@ -260,6 +287,11 @@ export default function Contacts() {
         <div key={c.id} className="list-item">
           <div className="name" style={{ cursor: 'pointer' }} onClick={() => openContact(c)}>
             {c.name}
+            {c.note && (
+              <span style={{ marginLeft: 8, color: 'var(--ink-soft)', fontSize: 13, fontWeight: 400 }}>
+                · {c.note}
+              </span>
+            )}
             <div style={{ marginTop: 4 }}>{typeBadges(c)}</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={() => openContact(c)}>Jobs</button>

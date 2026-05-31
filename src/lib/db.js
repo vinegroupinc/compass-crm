@@ -12,9 +12,12 @@ export async function getContacts() {
   return data || []
 }
 
-export async function addContact({ name, is_client = false, is_technician = false, is_subcontractor = false }) {
+export async function addContact({ name, is_client = false, is_technician = false, is_subcontractor = false, note = null }) {
   // If a contact with the same name exists, merge type flags rather than fail.
+  // For the note: keep existing if there is one, otherwise take the new value
+  // (so quick "add from job page" calls with no note don't blow away a real note).
   const cleanName = name.trim()
+  const cleanNote = (note || '').trim() || null
   const { data: existing } = await supabase
     .from('contacts')
     .select('*')
@@ -27,6 +30,7 @@ export async function addContact({ name, is_client = false, is_technician = fals
         is_client: existing.is_client || is_client,
         is_technician: existing.is_technician || is_technician,
         is_subcontractor: existing.is_subcontractor || is_subcontractor,
+        note: existing.note || cleanNote,
       })
       .eq('id', existing.id)
       .select()
@@ -36,7 +40,7 @@ export async function addContact({ name, is_client = false, is_technician = fals
   }
   const { data, error } = await supabase
     .from('contacts')
-    .insert({ name: cleanName, is_client, is_technician, is_subcontractor })
+    .insert({ name: cleanName, is_client, is_technician, is_subcontractor, note: cleanNote })
     .select()
     .single()
   if (error) throw error

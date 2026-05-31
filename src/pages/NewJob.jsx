@@ -73,7 +73,6 @@ export default function NewJob() {
     access_info: '',
     crew_access: '',
     status: 'New Lead',
-    needs_attention: false,
   })
 
   useEffect(() => {
@@ -121,7 +120,7 @@ export default function NewJob() {
         access_info: form.access_info,
         crew_access: form.crew_access,
         status: form.status,
-        needs_attention: form.needs_attention,
+        needs_attention: false,
       })
       await refresh()
       logActivity({
@@ -145,14 +144,16 @@ export default function NewJob() {
       <form className="card-pad" onSubmit={submit}>
         <div className="form-grid">
           <div className="field-full">
-            <label>Property address (street) *</label>
+            <label>Property address</label>
             <AddressAutocomplete
               value={form.street_address}
               onChange={(v) => set('street_address', v)}
               knownAddresses={addresses}
-              placeholder="123 Maple Ave"
+              placeholder="1253 Vine St Los Angeles, CA 90038"
             />
-            <div className="hint">Property history groups by this street address. Keep unit number separate below.</div>
+            <div className="hint" style={{ color: 'var(--attention)', fontWeight: 700 }}>
+              DO NOT PUT UNIT NUMBER ON PROPERTY ADDRESS LINE!
+            </div>
           </div>
 
           <div className="field-full unit-row">
@@ -258,14 +259,6 @@ export default function NewJob() {
             <label>Notes</label>
             <textarea value={form.crew_access} onChange={(e) => set('crew_access', e.target.value)}
               placeholder="Scope, tenant contact information, additional notes…" />
-          </div>
-
-          <div className="field-full">
-            <label className="row" style={{ marginBottom: 0, gap: 8, cursor: 'pointer' }}>
-              <input type="checkbox" style={{ width: 22, height: 22, minHeight: 'auto' }}
-                checked={form.needs_attention} onChange={(e) => set('needs_attention', e.target.checked)} />
-              ⚠ Needs Attention
-            </label>
           </div>
         </div>
 
