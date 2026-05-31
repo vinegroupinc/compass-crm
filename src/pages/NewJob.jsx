@@ -144,7 +144,7 @@ export default function NewJob() {
       <form className="card-pad" onSubmit={submit}>
         <div className="form-grid">
           <div className="field-full">
-            <label>Property address</label>
+            <label>Property address *</label>
             <AddressAutocomplete
               value={form.street_address}
               onChange={(v) => set('street_address', v)}
