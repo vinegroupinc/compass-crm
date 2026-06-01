@@ -53,6 +53,12 @@ export default function JobDetail() {
   const [closeNote, setCloseNote] = useState('')
   const [closeNoSale, setCloseNoSale] = useState(false)
 
+  // Edit task modal
+  const [editingTask, setEditingTask] = useState(null) // the task row, or null
+  const [editTaskText, setEditTaskText] = useState('')
+  const [editTaskDue, setEditTaskDue] = useState('')
+  const [editTaskAssignees, setEditTaskAssignees] = useState([])
+
   const load = useCallback(async () => {
     try {
       const j = await db.getJob(id)
@@ -349,6 +355,49 @@ export default function JobDetail() {
       await load(); await refresh()
       flash('Task re-opened')
     } catch (e) { flash(e?.message || 'Failed') }
+  }
+
+  // Open the edit-task modal pre-filled with the task's current state.
+  function startEdit(task) {
+    setEditingTask(task)
+    setEditTaskText(task.text || '')
+    setEditTaskDue(task.due_date || '')
+    const ids = (task.assigned_user_ids && task.assigned_user_ids.length > 0)
+      ? task.assigned_user_ids
+      : (task.assigned_user_id ? [task.assigned_user_id] : [])
+    setEditTaskAssignees(ids)
+  }
+  function toggleEditAssignee(uid) {
+    setEditTaskAssignees((prev) =>
+      prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]
+    )
+  }
+  async function saveEditTask() {
+    if (!editingTask) return
+    const trimmed = editTaskText.trim()
+    if (!trimmed) { flash('Task text can\'t be blank'); return }
+    if (!editTaskDue) { flash('Pick a due date'); return }
+    if (editTaskAssignees.length === 0) { flash('Assign at least one person'); return }
+    const names = editTaskAssignees.map((id) => {
+      const m = team.find((x) => x.id === id)
+      return m?.full_name || 'Teammate'
+    })
+    try {
+      // Two writes: text + due date (via setTaskDue can't carry text), and
+      // assignees (via reassignTask). We update the row directly to avoid
+      // adding yet another db helper.
+      await db.updateTaskFields(editingTask.id, {
+        text: trimmed,
+        due_date: editTaskDue,
+        assigned_user_ids: editTaskAssignees,
+        assigned_names: names,
+        assigned_user_id: editTaskAssignees[0] || null,
+        assigned_name: names[0] || null,
+      })
+      setEditingTask(null)
+      await load(); await refresh()
+      flash('Task updated')
+    } catch (e) { flash(e?.message || 'Could not save') }
   }
 
   async function changeTaskDue(taskId, dueDate) {
@@ -723,6 +772,11 @@ export default function JobDetail() {
                   </div>
                   <button
                     className="btn btn-ghost btn-sm"
+                    onClick={() => startEdit(t)}
+                    title="Edit task"
+                  >Edit</button>
+                  <button
+                    className="btn btn-ghost btn-sm"
                     onClick={() => deleteTask(t)}
                     title="Delete task"
                   >✕</button>
@@ -992,6 +1046,43 @@ export default function JobDetail() {
               }}
             >Mark Needs Attention</button>
             <button className="btn btn-ghost" onClick={() => setSettingAttention(false)}>Cancel</button>
+          </div>
+        </Modal>
+      )}
+
+      {editingTask && (
+        <Modal onClose={() => setEditingTask(null)}>
+          <h3>Edit task</h3>
+          <label style={{ marginTop: 12 }}>Task</label>
+          <textarea
+            autoFocus
+            value={editTaskText}
+            onChange={(e) => setEditTaskText(e.target.value)}
+            rows={3}
+          />
+          <label style={{ marginTop: 12 }}>Assign to (one or more)</label>
+          <div className="assignee-chips">
+            {team.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                className={`assignee-chip ${editTaskAssignees.includes(m.id) ? 'on' : ''}`}
+                onClick={() => toggleEditAssignee(m.id)}
+              >
+                {editTaskAssignees.includes(m.id) ? '✓ ' : ''}
+                {m.id === user.id ? `${m.full_name} (Me)` : m.full_name}
+              </button>
+            ))}
+          </div>
+          <label style={{ marginTop: 12 }}>Due date</label>
+          <input
+            type="date"
+            value={editTaskDue}
+            onChange={(e) => setEditTaskDue(e.target.value)}
+          />
+          <div className="row" style={{ marginTop: 16 }}>
+            <button className="btn btn-accent btn-block" onClick={saveEditTask}>Save changes</button>
+            <button className="btn btn-ghost" onClick={() => setEditingTask(null)}>Cancel</button>
           </div>
         </Modal>
       )}

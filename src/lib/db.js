@@ -298,6 +298,20 @@ export async function reopenTask(id) {
 }
 
 // Update the assignee list on an existing task.
+// Generic update for editing a task in place (text, due date, assignees).
+// Kept separate from the more-specific helpers above so the call site is
+// obvious about what's being changed.
+export async function updateTaskFields(id, patch) {
+  const { data, error } = await supabase
+    .from('tasks')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function reassignTask(id, assigneeIds, assigneeNames) {
   const { data, error } = await supabase
     .from('tasks')
