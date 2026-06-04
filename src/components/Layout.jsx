@@ -9,19 +9,30 @@ function FollowupPrompt({ stale, onClose }) {
   const navigate = useNavigate()
   const job = stale[0]
   if (!job) return null
+  // Most recent activity timestamp for this job, so the "last touched" line
+  // matches the new stale rule (not just status change time).
+  const candidates = [job.status_changed_at]
+  for (const n of (job.notes || [])) {
+    if (n.created_at && !n.deleted_at) candidates.push(n.created_at)
+  }
+  for (const t of (job.tasks || [])) {
+    if (t.created_at)   candidates.push(t.created_at)
+    if (t.completed_at) candidates.push(t.completed_at)
+  }
+  const latest = candidates.filter(Boolean).reduce((a, b) => (a > b ? a : b), null)
   return (
     <Modal onClose={onClose}>
       <h3>Time for a check-in</h3>
       <p style={{ color: 'var(--ink-soft)', fontSize: 14, marginTop: 4 }}>
         {stale.length > 1
-          ? `${stale.length} jobs haven't changed status in a week.`
-          : `This job hasn't changed status in a week.`}{' '}
-        Want to update it?
+          ? `${stale.length} jobs haven't had any activity in a week.`
+          : `This job hasn't had any activity in a week.`}{' '}
+        Want to take a look?
       </p>
       <div className="card-pad" style={{ marginTop: 14, marginBottom: 16, padding: 14 }}>
         <div style={{ fontWeight: 600 }}>{job.street_address}{job.unit ? ` · Unit ${job.unit}` : ''}</div>
         <div className="hint" style={{ marginTop: 4 }}>
-          {job.status} · last changed {daysSinceTimestamp(job.status_changed_at)} days ago
+          {job.status} · last touched {daysSinceTimestamp(latest)} days ago
         </div>
       </div>
       <div className="row">

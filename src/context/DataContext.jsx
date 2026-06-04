@@ -42,11 +42,28 @@ export function DataProvider({ children }) {
   const technicians = contacts.filter((c) => c.is_technician)
   const subcontractors = contacts.filter((c) => c.is_subcontractor)
 
-  const staleJobs = jobs.filter(
-    (j) =>
-      !HIDDEN_FROM_DASHBOARD.includes(j.status) &&
-      daysSinceTimestamp(j.status_changed_at) >= FOLLOWUP_DAYS
-  )
+  // A job is "stale" only when nothing has happened on it in FOLLOWUP_DAYS.
+  // "Something happening" includes: status changed, a note posted, a task
+  // created, or a task completed. If any of those is within the window, the
+  // job is being worked on and shouldn't pop up the check-in reminder.
+  const staleJobs = jobs.filter((j) => {
+    if (HIDDEN_FROM_DASHBOARD.includes(j.status)) return false
+
+    const candidates = []
+    if (j.status_changed_at) candidates.push(j.status_changed_at)
+    for (const n of (j.notes || [])) {
+      if (n.created_at && !n.deleted_at) candidates.push(n.created_at)
+    }
+    for (const t of (j.tasks || [])) {
+      if (t.created_at)   candidates.push(t.created_at)
+      if (t.completed_at) candidates.push(t.completed_at)
+    }
+    if (candidates.length === 0) return false
+
+    // Most-recent activity timestamp wins
+    const latest = candidates.reduce((a, b) => (a > b ? a : b))
+    return daysSinceTimestamp(latest) >= FOLLOWUP_DAYS
+  })
 
   return (
     <DataCtx.Provider
