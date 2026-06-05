@@ -43,6 +43,15 @@ export default function JobDetail() {
   const [eventDate, setEventDate] = useState(() => laToday())
   const [eventTime, setEventTime] = useState('')
   const [addingEvent, setAddingEvent] = useState(false)
+  // When the add-event form has "Schedule entire job" checked, it switches to
+  // a start/end date pair and writes to jobs.start_date/end_date instead of
+  // creating a scheduled_events row.
+  const [scheduleFullJob, setScheduleFullJob] = useState(false)
+  const [fullJobEnd, setFullJobEnd] = useState('')
+  // Schedule edit modal — opened from the top of the page or by clicking
+  // the "Full job schedule" entry in the schedule list.
+  const [editingSched, setEditingSched] = useState(false)
+  const [schedDraft, setSchedDraft] = useState({ start_date: '', end_date: '' })
 
   // Needs Attention modal (when setting it; clearing is one-tap)
   const [settingAttention, setSettingAttention] = useState(false)
@@ -190,6 +199,27 @@ export default function JobDetail() {
   }
 
   async function addEventToJob() {
+    // Branch: "Schedule entire job" updates the job's overall dates instead
+    // of creating a scheduled_events row.
+    if (scheduleFullJob) {
+      if (!eventDate) { flash('Pick a start date'); return }
+      if (!fullJobEnd) { flash('Pick an end date'); return }
+      if (fullJobEnd < eventDate) { flash('End date must be on or after start date'); return }
+      try {
+        await db.updateJob(job.id, {
+          start_date: eventDate,
+          end_date: fullJobEnd,
+        })
+        // Reset the form
+        setEventTitle(''); setEventTime(''); setEventDate(laToday()); setFullJobEnd('')
+        setScheduleFullJob(false)
+        setAddingEvent(false)
+        await load(); await refresh()
+        flash('Full job schedule saved')
+      } catch (e) { flash(e?.message || 'Could not save schedule') }
+      return
+    }
+    // Standard day-event path
     if (!eventTitle.trim()) { flash('Give the event a name'); return }
     if (!eventDate) { flash('Pick a date'); return }
     try {
@@ -204,6 +234,29 @@ export default function JobDetail() {
       await refresh()
       flash('Event added')
     } catch (e) { flash(e?.message || 'Could not add event') }
+  }
+
+  // Save / clear from the schedule edit modal (opened from the top of the
+  // page or by clicking the "Full job schedule" row).
+  async function saveSchedDraft() {
+    const s = schedDraft.start_date || null
+    const e = schedDraft.end_date || null
+    if (s && e && e < s) { flash('End date must be on or after start date'); return }
+    try {
+      await db.updateJob(job.id, { start_date: s, end_date: e })
+      setEditingSched(false)
+      await load(); await refresh()
+      flash(s ? 'Schedule updated' : 'Schedule cleared')
+    } catch (err) { flash(err?.message || 'Could not save') }
+  }
+  async function clearSched() {
+    if (!confirm('Clear the full job schedule? Day events will remain.')) return
+    try {
+      await db.updateJob(job.id, { start_date: null, end_date: null })
+      setEditingSched(false)
+      await load(); await refresh()
+      flash('Schedule cleared')
+    } catch (err) { flash(err?.message || 'Could not clear') }
   }
 
   async function removeEvent(ev) {
@@ -496,9 +549,19 @@ export default function JobDetail() {
             {job.street_address}{job.unit ? <span style={{ color: 'var(--ink-faint)' }}> · Unit {job.unit}</span> : null}
           </h1>
           <div className="hint job-schedule-row">
-            {job.start_date
-              ? `Scheduled ${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}`
-              : 'Not yet scheduled'}
+            <button
+              type="button"
+              className="job-schedule-edit"
+              onClick={() => {
+                setSchedDraft({ start_date: job.start_date || '', end_date: job.end_date || '' })
+                setEditingSched(true)
+              }}
+              title="Edit full job schedule"
+            >
+              {job.start_date
+                ? `Scheduled ${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}`
+                : 'Full schedule has not been input.'}
+            </button>
           </div>
         </div>
         <div className="row row-wrap job-head-actions" style={{ gap: 8 }}>
@@ -850,52 +913,57 @@ export default function JobDetail() {
         )}
       </div>
 
-      {/* schedule + property history — paired side-by-side at the bottom */}
+      {/* Bottom: unified Schedule card on left; Wrap-up + Property History on right */}
       <div className="bottom-grid">
-        <div className="card-pad">
-          <h2 style={{ fontSize: 18, marginBottom: 4 }}>Schedule</h2>
-          <div className="hint" style={{ marginBottom: 12 }}>
-            {job.start_date
-              ? `Currently ${formatDate(job.start_date)}${job.end_date ? ` – ${formatDate(job.end_date)}` : ''}.`
-              : 'Not yet scheduled.'}
-          </div>
-          <div>
-            <label>Scheduled start</label>
-            <input type="date" value={sched.start_date}
-              onChange={(e) => setSched((s) => ({ ...s, start_date: e.target.value }))} />
-          </div>
-          <div style={{ marginTop: 10 }}>
-            <label>Scheduled end</label>
-            <input type="date" value={sched.end_date}
-              onChange={(e) => setSched((s) => ({ ...s, end_date: e.target.value }))} />
-          </div>
-          <button className="btn btn-accent btn-sm" style={{ marginTop: 14 }} onClick={saveSchedule}>
-            Save schedule
-          </button>
-        </div>
 
-        <div className="bottom-right-stack">
-
+        {/* ───────── LEFT: Unified Schedule card ───────── */}
         <div className="card-pad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <h2 style={{ fontSize: 18, margin: 0 }}>Schedule a day event</h2>
+            <h2 style={{ fontSize: 18, margin: 0 }}>Schedule</h2>
             {!addingEvent && (
-              <button className="btn btn-ghost btn-sm" onClick={() => setAddingEvent(true)}>+ Add</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => {
+                setAddingEvent(true)
+                // If a full schedule already exists, force the form into
+                // day-event mode (the checkbox will be disabled with a hint).
+                setScheduleFullJob(false)
+              }}>+ Add</button>
             )}
           </div>
           <div className="hint" style={{ marginBottom: 12 }}>
-            One-off entries that show on the calendar (e.g. a sub coming on a specific day).
+            Full-job schedule sits at the top. Add day events (e.g. a sub coming a specific day) below.
           </div>
 
+          {/* Combined list: full-job entry pinned on top, then day events */}
           {(() => {
+            const hasFullSchedule = !!job.start_date
             const jobEvents = (scheduledEvents || [])
               .filter((e) => e.job_id === job.id)
               .sort((a, b) => (a.event_date + (a.event_time || '')).localeCompare(b.event_date + (b.event_time || '')))
-            if (jobEvents.length === 0 && !addingEvent) {
-              return <div className="hint">No events yet.</div>
+            if (!hasFullSchedule && jobEvents.length === 0 && !addingEvent) {
+              return <div className="hint">Nothing scheduled yet.</div>
             }
             return (
-              <div className={jobEvents.length >= 2 ? 'day-events-scroll' : ''}>
+              <div className={jobEvents.length >= 3 ? 'day-events-scroll' : ''}>
+                {hasFullSchedule && (
+                  <button
+                    type="button"
+                    className="list-item schedule-full-row"
+                    onClick={() => {
+                      setSchedDraft({ start_date: job.start_date || '', end_date: job.end_date || '' })
+                      setEditingSched(true)
+                    }}
+                    title="Edit full job schedule"
+                  >
+                    <div className="name">
+                      <span className="schedule-full-icon">📆</span> Full job schedule
+                      <div className="hint" style={{ marginTop: 4 }}>
+                        {formatDate(job.start_date)}
+                        {job.end_date ? ` – ${formatDate(job.end_date)}` : ''}
+                      </div>
+                    </div>
+                    <span className="hint" style={{ fontSize: 12 }}>Edit</span>
+                  </button>
+                )}
                 {jobEvents.map((ev) => (
                   <div key={ev.id} className="list-item" style={{ marginTop: 0, marginBottom: 8 }}>
                     <div className="name">
@@ -909,33 +977,91 @@ export default function JobDetail() {
             )
           })()}
 
+          {/* Add form */}
           {addingEvent && (
             <div style={{ marginTop: 12, padding: 12, background: '#fafbfc', border: '1px solid var(--line)', borderRadius: 8 }}>
-              <label>Title</label>
-              <input
-                autoFocus
-                value={eventTitle}
-                onChange={(e) => setEventTitle(e.target.value)}
-                placeholder="e.g. Reglaze"
-              />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-                <div>
-                  <label>Date</label>
-                  <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+              {/* Schedule entire job toggle */}
+              <label className="row" style={{ marginBottom: 10, gap: 8, cursor: job.start_date ? 'not-allowed' : 'pointer', alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  style={{ width: 18, height: 18, minHeight: 'auto' }}
+                  checked={scheduleFullJob}
+                  disabled={!!job.start_date}
+                  onChange={(e) => setScheduleFullJob(e.target.checked)}
+                />
+                <span style={{ fontSize: 13, fontWeight: 600, color: job.start_date ? 'var(--ink-faint)' : 'var(--ink-soft)' }}>
+                  Schedule entire job{job.start_date ? ' (already scheduled — edit at the top)' : ''}
+                </span>
+              </label>
+
+              {scheduleFullJob ? (
+                /* Full job mode: just start + end date */
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label>Start date</label>
+                    <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label>End date</label>
+                    <input type="date" value={fullJobEnd} onChange={(e) => setFullJobEnd(e.target.value)} />
+                  </div>
                 </div>
-                <div>
-                  <label>Start time</label>
-                  <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
-                </div>
-              </div>
+              ) : (
+                /* Day event mode: title + date + optional time */
+                <>
+                  <label>Title</label>
+                  <input
+                    autoFocus
+                    value={eventTitle}
+                    onChange={(e) => setEventTitle(e.target.value)}
+                    placeholder="e.g. Reglaze"
+                  />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+                    <div>
+                      <label>Date</label>
+                      <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                    </div>
+                    <div>
+                      <label>Start time</label>
+                      <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="row" style={{ marginTop: 12 }}>
-                <button className="btn btn-accent btn-sm btn-block" onClick={addEventToJob}>Save event</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => { setAddingEvent(false); setEventTitle(''); setEventTime('') }}>Cancel</button>
+                <button className="btn btn-accent btn-sm btn-block" onClick={addEventToJob}>
+                  {scheduleFullJob ? 'Save full schedule' : 'Save event'}
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => {
+                  setAddingEvent(false); setEventTitle(''); setEventTime(''); setFullJobEnd(''); setScheduleFullJob(false)
+                }}>Cancel</button>
               </div>
             </div>
           )}
         </div>
 
+        {/* ───────── RIGHT: Wrap-up + Property History ───────── */}
+        <div className="bottom-right-stack">
+
+        {/* Wrap up this job (only when job isn't already retired) */}
+        {!['Closed', 'No-Sale'].includes(job.status) && (
+          <div className="card-pad">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <h2 style={{ fontSize: 18, margin: 0 }}>Wrap up this job</h2>
+                <p className="hint" style={{ margin: '4px 0 0' }}>
+                  Use when you're done. Moves the job off the dashboard.
+                </p>
+              </div>
+              <button className="btn btn-accent btn-sm" onClick={() => setClosing(true)}>
+                Close Job
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Property history */}
         <div className="card-pad">
           <h2 style={{ fontSize: 18, marginBottom: 4 }}>Property history</h2>
           <div className="hint" style={{ marginBottom: 12 }}>
@@ -958,21 +1084,6 @@ export default function JobDetail() {
 
         </div> {/* end bottom-right-stack */}
       </div>
-
-      {/* Close Job — final action that retires a job to Closed or No-Sale */}
-      {!['Closed', 'No-Sale'].includes(job.status) && (
-        <div className="close-zone">
-          <div className="close-zone-text">
-            <h3 style={{ margin: 0 }}>Wrap up this job</h3>
-            <p style={{ margin: '4px 0 0', color: 'var(--ink-soft)', fontSize: 13 }}>
-              Use when you're done. Closes the job and moves it off the dashboard.
-            </p>
-          </div>
-          <button className="btn btn-accent" onClick={() => setClosing(true)}>
-            Close Job
-          </button>
-        </div>
-      )}
 
       {/* Danger Zone — separated and clearly marked so deletion is deliberate. */}
       <div className="danger-zone">
@@ -1047,6 +1158,43 @@ export default function JobDetail() {
             >Mark Needs Attention</button>
             <button className="btn btn-ghost" onClick={() => setSettingAttention(false)}>Cancel</button>
           </div>
+        </Modal>
+      )}
+
+      {editingSched && (
+        <Modal onClose={() => setEditingSched(false)}>
+          <h3>{job.start_date ? 'Edit full job schedule' : 'Set full job schedule'}</h3>
+          <p style={{ color: 'var(--ink-soft)', fontSize: 14, marginTop: 6, marginBottom: 14 }}>
+            Defines the overall run of the job. Day events (e.g. a sub coming on a specific day) are separate.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label>Start date</label>
+              <input
+                type="date"
+                autoFocus
+                value={schedDraft.start_date}
+                onChange={(e) => setSchedDraft((d) => ({ ...d, start_date: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label>End date</label>
+              <input
+                type="date"
+                value={schedDraft.end_date}
+                onChange={(e) => setSchedDraft((d) => ({ ...d, end_date: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="row" style={{ marginTop: 16 }}>
+            <button className="btn btn-accent btn-block" onClick={saveSchedDraft}>Save</button>
+            <button className="btn btn-ghost" onClick={() => setEditingSched(false)}>Cancel</button>
+          </div>
+          {job.start_date && (
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+              <button className="btn btn-danger btn-sm" onClick={clearSched}>Clear full schedule</button>
+            </div>
+          )}
         </Modal>
       )}
 

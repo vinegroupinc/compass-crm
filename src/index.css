@@ -1037,10 +1037,47 @@ a { color: inherit; text-decoration: none; }
 /* Day events list: shows ~1 event height by default; once 2+ events exist,
    the box becomes scrollable so the card doesn't grow tall on busy jobs. */
 .day-events-scroll {
-  max-height: 88px;        /* ~one event's height */
+  max-height: 220px;       /* a bit taller to fit full-schedule + 2 day events */
   overflow-y: auto;
-  padding-right: 4px;       /* room for the scrollbar */
+  padding-right: 4px;
 }
+
+/* Clickable schedule label at the top of the job page */
+.job-schedule-edit {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--ink-faint);
+  text-underline-offset: 3px;
+}
+.job-schedule-edit:hover { color: var(--accent); text-decoration-color: var(--accent); }
+
+/* Full-job schedule row inside the Schedule card — pinned at the top with
+   a distinct accent-tinted look to set it apart from regular day events. */
+.schedule-full-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: var(--accent-soft);
+  border: 1px solid #fde2c0;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0 0 10px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.schedule-full-row:hover { background: #ffe9d6; }
+.schedule-full-row .name { flex: 1; }
+.schedule-full-icon { margin-right: 4px; }
 
 /* ---------- address autocomplete ---------- */
 .address-ac { position: relative; }
