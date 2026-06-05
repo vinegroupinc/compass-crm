@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import * as db from '../lib/db'
+import { supabase } from '../lib/supabaseClient'
 import { logActivity } from '../lib/activityLog'
 import { useData } from '../context/DataContext'
 import { useAuth } from '../context/AuthContext'
@@ -55,6 +56,10 @@ export default function JobDetail() {
 
   // Job ID info modal — shows created/closed dates
   const [showJobIdInfo, setShowJobIdInfo] = useState(false)
+  // Who closed this job, looked up from the activity log when the modal opens.
+  // We don't store closed_by on jobs directly; the log already has it.
+  // States: undefined = not fetched yet, null = no log entry, string = name.
+  const [closedByName, setClosedByName] = useState(undefined)
 
   // Needs Attention modal (when setting it; clearing is one-tap)
   const [settingAttention, setSettingAttention] = useState(false)
@@ -102,6 +107,42 @@ export default function JobDetail() {
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  // When the Job ID modal opens, look up who closed the job from the
+  // activity log. We never stored closed_by on the job row directly, but
+  // the log records the actor on every job_closed event.
+  useEffect(() => {
+    if (!showJobIdInfo) return
+    if (!job?.id) return
+    if (closedByName !== undefined) return  // already fetched this session
+    if (!['Closed', 'No-Sale'].includes(job.status)) {
+      // Job isn't closed; nothing to look up
+      setClosedByName(null)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('activity_log')
+          .select('actor_name, created_at')
+          .eq('kind', 'job_closed')
+          .eq('target_id', job.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+        if (error) throw error
+        if (cancelled) return
+        setClosedByName(data?.[0]?.actor_name || null)
+      } catch {
+        if (!cancelled) setClosedByName(null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [showJobIdInfo, job?.id, job?.status, closedByName])
+
+  // Reset the cached lookup whenever the job changes (e.g. navigating between
+  // jobs in the same session) so the next modal open re-fetches.
+  useEffect(() => { setClosedByName(undefined) }, [job?.id])
 
   function flash(m) { setToast(m); setTimeout(() => setToast(''), 2200) }
 
@@ -1187,6 +1228,16 @@ export default function JobDetail() {
                     : 'Still active')}
             </div>
           </div>
+          {['Closed', 'No-Sale'].includes(job.status) && (
+            <div style={{ marginTop: 14 }}>
+              <div className="hint" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700 }}>Closed by</div>
+              <div style={{ fontSize: 15, marginTop: 4 }}>
+                {closedByName === undefined
+                  ? 'Looking up…'
+                  : (closedByName || 'Unknown')}
+              </div>
+            </div>
+          )}
           <div className="row" style={{ marginTop: 18 }}>
             <button className="btn btn-ghost btn-block" onClick={() => setShowJobIdInfo(false)}>Close</button>
           </div>
