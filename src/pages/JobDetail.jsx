@@ -1041,25 +1041,8 @@ export default function JobDetail() {
           )}
         </div>
 
-        {/* ───────── RIGHT: Wrap-up + Property History ───────── */}
+        {/* ───────── RIGHT: Property History + Wrap-up ───────── */}
         <div className="bottom-right-stack">
-
-        {/* Wrap up this job (only when job isn't already retired) */}
-        {!['Closed', 'No-Sale'].includes(job.status) && (
-          <div className="card-pad">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <div>
-                <h2 style={{ fontSize: 18, margin: 0 }}>Wrap up this job</h2>
-                <p className="hint" style={{ margin: '4px 0 0' }}>
-                  Use when you're done. Moves the job off the dashboard.
-                </p>
-              </div>
-              <button className="btn btn-accent btn-sm" onClick={() => setClosing(true)}>
-                Close Job
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Property history */}
         <div className="card-pad">
@@ -1081,6 +1064,23 @@ export default function JobDetail() {
             View Full Property History →
           </Link>
         </div>
+
+        {/* Wrap up this job (only when job isn't already retired) */}
+        {!['Closed', 'No-Sale'].includes(job.status) && (
+          <div className="card-pad">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <h2 style={{ fontSize: 18, margin: 0 }}>Wrap up this job</h2>
+                <p className="hint" style={{ margin: '4px 0 0' }}>
+                  Use when you're done. Moves the job off the dashboard.
+                </p>
+              </div>
+              <button className="btn btn-accent btn-sm" onClick={() => setClosing(true)}>
+                Close Job
+              </button>
+            </div>
+          </div>
+        )}
 
         </div> {/* end bottom-right-stack */}
       </div>
