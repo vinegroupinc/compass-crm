@@ -1084,50 +1084,26 @@ export default function JobDetail() {
           </Link>
         </div>
 
-        {/* Wrap up this job (only when job isn't already retired) */}
-        {!['Closed', 'No-Sale'].includes(job.status) && (
-          <div className="card-pad">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <div>
-                <h2 style={{ fontSize: 18, margin: 0 }}>Wrap up this job</h2>
-                <p className="hint" style={{ margin: '4px 0 0' }}>
-                  Use when you're done. Moves the job off the dashboard.
-                </p>
-              </div>
-              <button className="btn btn-accent btn-sm" onClick={() => setClosing(true)}>
-                Close Job
-              </button>
-            </div>
-          </div>
-        )}
-
         </div> {/* end bottom-right-stack */}
       </div>
 
-      {/* Danger Zone — separated and clearly marked so deletion is deliberate. */}
-      <div className="danger-zone">
-        <h3>Danger Zone</h3>
-        <p>Deleting this job removes it from the dashboard, calendar, and search.</p>
-        <button className="btn btn-danger" onClick={() => setConfirmDelete(true)}>
-          Delete this job
-        </button>
-      </div>
+      {/* Wrap up this job — full-width section at the bottom. Only visible
+          while the job is still active. */}
+      {!['Closed', 'No-Sale'].includes(job.status) && (
+        <div className="wrapup-zone">
+          <div className="wrapup-zone-text">
+            <h3 style={{ margin: 0 }}>Wrap up this job</h3>
+            <p style={{ margin: '4px 0 0', color: 'var(--ink-soft)', fontSize: 13 }}>
+              Use when you're done. Closes the job and moves it off the dashboard.
+            </p>
+          </div>
+          <button className="btn btn-accent" onClick={() => setClosing(true)}>
+            Close Job
+          </button>
+        </div>
+      )}
 
       <Toast message={toast} />
-
-      {confirmDelete && (
-        <Modal onClose={() => setConfirmDelete(false)}>
-          <h3>Delete this job?</h3>
-          <p style={{ color: 'var(--ink-soft)', fontSize: 14, marginTop: 6 }}>
-            <strong>{job.street_address}{job.unit ? ` · Unit ${job.unit}` : ''}</strong> will be removed
-            from the dashboard, calendar, and search.
-          </p>
-          <div className="row" style={{ marginTop: 16 }}>
-            <button className="btn btn-danger btn-block" onClick={deleteJob}>Yes, delete</button>
-            <button className="btn btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
-          </div>
-        </Modal>
-      )}
 
       {completing && (
         <Modal onClose={() => setCompleting(null)}>
@@ -1180,13 +1156,25 @@ export default function JobDetail() {
         </Modal>
       )}
 
-      {showJobIdInfo && (
+      {showJobIdInfo && (() => {
+        // Resolve the creator's name. team has full profile records;
+        // fall back to the legacy created_by uuid string if missing.
+        const creator = team.find((m) => m.id === job.created_by)
+        const creatorName = creator?.full_name
+          || (job.created_by ? 'Unknown user' : null)
+        return (
         <Modal onClose={() => setShowJobIdInfo(false)}>
           <h3>Job ID #C{job.job_number}</h3>
           <div style={{ marginTop: 12 }}>
             <div className="hint" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700 }}>Created</div>
             <div style={{ fontSize: 15, marginTop: 4 }}>
               {job.created_at ? formatTimestamp(job.created_at) : 'Unknown'}
+            </div>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <div className="hint" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700 }}>Created by</div>
+            <div style={{ fontSize: 15, marginTop: 4 }}>
+              {creatorName || 'Unknown'}
             </div>
           </div>
           <div style={{ marginTop: 14 }}>
@@ -1203,7 +1191,8 @@ export default function JobDetail() {
             <button className="btn btn-ghost btn-block" onClick={() => setShowJobIdInfo(false)}>Close</button>
           </div>
         </Modal>
-      )}
+        )
+      })()}
 
       {editingSched && (
         <Modal onClose={() => setEditingSched(false)}>

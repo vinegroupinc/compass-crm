@@ -129,6 +129,28 @@ a { color: inherit; text-decoration: none; }
   font-weight: 600;
 }
 
+/* Full-width wrap-up bar at the bottom of the job page (replaces the old
+   Danger Zone slot). Visually a calm, normal section — closing is final but
+   not "dangerous." */
+.wrapup-zone {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: var(--shadow);
+}
+.wrapup-zone-text h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  font-weight: 600;
+}
+
 /* ---------- danger zone ---------- */
 .danger-zone {
   margin-top: 22px;
@@ -185,6 +207,56 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ---------- Admin page ---------- */
+/* ── Admin job management section ── */
+.admin-section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 22px;
+  box-shadow: var(--shadow);
+}
+.admin-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 14px 0 18px;
+}
+.admin-job-results {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+  background: #fafbfc;
+}
+.admin-job-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+.admin-job-row:first-child { border-top: none; }
+.admin-job-info {
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+.admin-job-info:hover .admin-job-addr { color: var(--accent); }
+.admin-job-id {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  letter-spacing: .02em;
+}
+.admin-job-addr {
+  font-weight: 600;
+  font-size: 14px;
+  margin-top: 2px;
+}
+
 .admin-cats {
   display: flex;
   flex-wrap: wrap;
