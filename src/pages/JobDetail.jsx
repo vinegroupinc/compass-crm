@@ -53,6 +53,9 @@ export default function JobDetail() {
   const [editingSched, setEditingSched] = useState(false)
   const [schedDraft, setSchedDraft] = useState({ start_date: '', end_date: '' })
 
+  // Job ID info modal — shows created/closed dates
+  const [showJobIdInfo, setShowJobIdInfo] = useState(false)
+
   // Needs Attention modal (when setting it; clearing is one-tap)
   const [settingAttention, setSettingAttention] = useState(false)
   const [attentionNoteDraft, setAttentionNoteDraft] = useState('')
@@ -288,10 +291,11 @@ export default function JobDetail() {
     const newStatus = closeNoSale ? 'No-Sale' : 'Closed'
     const trimmed = (closeNote || '').trim()
     try {
-      // Update status + persist the close note
+      // Update status + persist the close note + timestamp the close
       await db.updateJob(job.id, {
         status: newStatus,
         closed_note: trimmed || null,
+        closed_at: new Date().toISOString(),
       }, { statusChanged: true })
       // Also drop the close note into the job's notes log so it shows in timeline
       if (trimmed) {
@@ -564,6 +568,7 @@ export default function JobDetail() {
             </button>
           </div>
         </div>
+        <div className="job-head-actions-col">
         <div className="row row-wrap job-head-actions" style={{ gap: 8 }}>
           {/* Clickable colored status pill — native <select> overlays for mobile-friendly dropdown */}
           <span
@@ -616,6 +621,20 @@ export default function JobDetail() {
               setEditing(true)
             }}>Edit</button>
           )}
+        </div>
+        {/* Job ID — right-aligned beneath the action row. Click to see
+            created/closed dates. Renders even for legacy jobs because of
+            the migration backfill. */}
+        {job.job_number && (
+          <button
+            type="button"
+            className="job-id-pill"
+            onClick={() => setShowJobIdInfo(true)}
+            title="Click to see when this job was created/closed"
+          >
+            Job ID #C{job.job_number}
+          </button>
+        )}
         </div>
       </div>
 
@@ -1157,6 +1176,31 @@ export default function JobDetail() {
               }}
             >Mark Needs Attention</button>
             <button className="btn btn-ghost" onClick={() => setSettingAttention(false)}>Cancel</button>
+          </div>
+        </Modal>
+      )}
+
+      {showJobIdInfo && (
+        <Modal onClose={() => setShowJobIdInfo(false)}>
+          <h3>Job ID #C{job.job_number}</h3>
+          <div style={{ marginTop: 12 }}>
+            <div className="hint" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700 }}>Created</div>
+            <div style={{ fontSize: 15, marginTop: 4 }}>
+              {job.created_at ? formatTimestamp(job.created_at) : 'Unknown'}
+            </div>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <div className="hint" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700 }}>Closed</div>
+            <div style={{ fontSize: 15, marginTop: 4 }}>
+              {job.closed_at
+                ? `${formatTimestamp(job.closed_at)}${job.status === 'No-Sale' ? ' (No-Sale)' : ''}`
+                : (['Closed', 'No-Sale'].includes(job.status)
+                    ? 'Unknown (closed before this was tracked)'
+                    : 'Still active')}
+            </div>
+          </div>
+          <div className="row" style={{ marginTop: 18 }}>
+            <button className="btn btn-ghost btn-block" onClick={() => setShowJobIdInfo(false)}>Close</button>
           </div>
         </Modal>
       )}

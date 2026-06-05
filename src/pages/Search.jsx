@@ -29,6 +29,17 @@ function scoreJob(job, query) {
   if (!q) return { score: 0, matchedFields: [] }
   let score = 0
   const matchedFields = []
+
+  // Exact job-number match wins decisively. Accepts either "100147" or the
+  // displayed "C100147" form (the C is purely a display prefix).
+  if (job.job_number) {
+    const numStr = String(job.job_number)
+    const qStripped = q.startsWith('c') ? q.slice(1) : q
+    if (qStripped === numStr) {
+      return { score: 1000, matchedFields: ['job_number'] }
+    }
+  }
+
   function check(field, value) {
     if (!value) return
     if (lc(value).includes(q)) {
@@ -68,6 +79,7 @@ function scoreJob(job, query) {
 }
 
 const FIELD_LABELS = {
+  job_number: 'job ID',
   street_address: 'address',
   unit: 'unit',
   management_company: 'client',
@@ -146,7 +158,7 @@ function JobsSearch({ jobs, q, setQ }) {
     <>
       <input
         autoFocus
-        placeholder="Address, name, lockbox code, anything…"
+        placeholder="Address, Job ID (e.g. C100147), name, anything…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         style={{ marginBottom: 18 }}
@@ -178,6 +190,7 @@ function JobsSearch({ jobs, q, setQ }) {
                   {job.unit ? <span style={{ color: 'var(--ink-faint)' }}> · Unit {job.unit}</span> : null}
                 </div>
                 <div className="job-meta">
+                  {job.job_number && <span>🆔 #C{job.job_number}</span>}
                   {job.management_company && <span>🏢 {job.management_company}</span>}
                   {(() => {
                     const tech = (job.main_techs && job.main_techs.length > 0) ? job.main_techs.join(', ') : job.main_tech

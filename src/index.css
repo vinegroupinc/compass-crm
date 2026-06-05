@@ -665,6 +665,26 @@ a { color: inherit; text-decoration: none; }
 /* ---------- job page header ---------- */
 .job-head { gap: 14px; align-items: flex-start; }
 .job-head-actions { align-items: center; }
+/* Wrapper column so the Job ID can sit right-aligned below the action buttons */
+.job-head-actions-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.job-id-pill {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.job-id-pill:hover { background: #f1f3f7; color: var(--ink); }
 .job-schedule-row { margin-top: 6px; font-size: 14px; font-weight: 500; color: var(--ink-soft); }
 
 /* ---------- status pill (clickable, header) ---------- */
@@ -1254,6 +1274,12 @@ a { color: inherit; text-decoration: none; }
     width: 100%;
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+  /* Left-align the action-column wrapper too so the Job ID pill sits flush
+     with the rest of the stacked header content on phones. */
+  .job-head-actions-col {
+    width: 100%;
+    align-items: flex-start;
   }
 
   /* Native date inputs render slightly wider than expected on iOS — make
