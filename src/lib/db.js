@@ -404,3 +404,57 @@ export async function deleteScheduledEvent(id) {
   const { error } = await supabase.from('scheduled_events').delete().eq('id', id)
   if (error) throw error
 }
+
+/* ---------------------- JOB COSTING ----------------------- */
+// One row per job. We auto-create the row on first read (upsert pattern),
+// so callers never have to handle "no row yet" — they always get a usable object.
+
+export async function getJobCosting(jobId) {
+  const { data, error } = await supabase
+    .from('job_costing')
+    .select('*')
+    .eq('job_id', jobId)
+    .maybeSingle()
+  if (error) throw error
+  // Return a normalized shape even when the row doesn't exist yet
+  return data || {
+    job_id: jobId,
+    invoice: null,
+    materials: [], subs: [], labor: [],
+    change_orders: [],
+    last_updated_at: null,
+    last_updated_by: null,
+    last_updated_by_name: null,
+  }
+}
+
+export async function saveJobCosting(jobId, costing, actor) {
+  const payload = {
+    job_id: jobId,
+    invoice: costing.invoice === '' || costing.invoice == null ? null : Number(costing.invoice),
+    materials: costing.materials || [],
+    subs: costing.subs || [],
+    labor: costing.labor || [],
+    change_orders: costing.change_orders || [],
+    last_updated_at: new Date().toISOString(),
+    last_updated_by: actor?.id || null,
+    last_updated_by_name: actor?.name || null,
+  }
+  const { data, error } = await supabase
+    .from('job_costing')
+    .upsert(payload, { onConflict: 'job_id' })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// For the Job Costing search: pull all costing rows in one shot so we can
+// filter by profit, missing data, etc.
+export async function getAllJobCosting() {
+  const { data, error } = await supabase
+    .from('job_costing')
+    .select('*')
+  if (error) throw error
+  return data || []
+}

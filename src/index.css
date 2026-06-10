@@ -110,6 +110,101 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-faint);
 }
 
+/* ---------- job costing ---------- */
+/* Link card on the job page that opens the costing screen */
+.costing-link-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: box-shadow .12s, transform .08s;
+}
+.costing-link-card:hover {
+  box-shadow: var(--shadow-lift);
+  transform: translateY(-1px);
+}
+.costing-link-arrow {
+  font-size: 22px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Summary stats row at the top of the costing page (and the costing search) */
+.costing-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+.costing-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.costing-stat-value {
+  font-size: 17px;
+  margin-top: 4px;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.costing-stat-value.strong {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+/* Line item row inside a bucket card */
+.costing-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.costing-row:first-child { border-top: none; }
+.costing-row-main { flex: 1; min-width: 0; }
+.costing-row-desc { font-size: 14px; color: var(--ink); }
+.costing-row-amount {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.costing-row-amount.neg { color: #dc2626; }
+.costing-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+/* Sticky save bar */
+.costing-save-bar {
+  position: sticky;
+  bottom: 76px; /* clear the mobile bottom-nav */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--ink);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 999px;
+  margin: 16px auto 0;
+  max-width: 360px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  z-index: 40;
+}
+@media (min-width: 760px) {
+  .costing-save-bar { bottom: 24px; }
+}
+
 /* ---------- close-job zone (above danger zone) ---------- */
 .close-zone {
   margin-top: 22px;

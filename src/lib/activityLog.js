@@ -36,6 +36,7 @@ export const KIND_LABELS = {
   contact_created:    'Created Contact',
   contact_updated:    'Edited Contact',
   contact_deleted:    'Deleted Contact',
+  costing_updated:    'Updated Job Costing',
   login:              'Login',
   logout:             'Logout',
 }
@@ -47,5 +48,6 @@ export const KIND_CATEGORIES = [
   { id: 'tasks',      label: 'Tasks',              kinds: ['task_created','task_completed'] },
   { id: 'attention',  label: 'Needs Attention',    kinds: ['attention_set','attention_cleared'] },
   { id: 'contacts',   label: 'Contacts',           kinds: ['contact_created','contact_updated','contact_deleted'] },
+  { id: 'costing',    label: 'Costing',            kinds: ['costing_updated'] },
   { id: 'auth',       label: 'Logins / Logouts',   kinds: ['login','logout'] },
 ]

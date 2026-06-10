@@ -21,6 +21,7 @@ const KIND_ICONS = {
   contact_created:    '👤',
   contact_updated:    '✏️',
   contact_deleted:    '🗑️',
+  costing_updated:    '💰',
   login:              '🔑',
   logout:             '👋',
 }

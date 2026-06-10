@@ -1104,6 +1104,17 @@ export default function JobDetail() {
         {/* ───────── RIGHT: Property History + Wrap-up ───────── */}
         <div className="bottom-right-stack">
 
+        {/* Job Costing — link to dedicated screen */}
+        <Link to={`/job/${job.id}/costing`} className="card-pad costing-link-card">
+          <div>
+            <h2 style={{ fontSize: 18, margin: 0 }}>Job Costing</h2>
+            <div className="hint" style={{ marginTop: 4 }}>
+              Track materials, subs, labor, invoice and profit.
+            </div>
+          </div>
+          <span className="costing-link-arrow">→</span>
+        </Link>
+
         {/* Property history */}
         <div className="card-pad">
           <h2 style={{ fontSize: 18, marginBottom: 4 }}>Property history</h2>

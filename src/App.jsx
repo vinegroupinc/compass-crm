@@ -8,6 +8,7 @@ import SetPassword from './pages/SetPassword'
 import Dashboard from './pages/Dashboard'
 import NewJob from './pages/NewJob'
 import JobDetail from './pages/JobDetail'
+import JobCosting from './pages/JobCosting'
 import Properties from './pages/Properties'
 import Search from './pages/Search'
 import Calendar from './pages/Calendar'
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/new" element={<NewJob />} />
           <Route path="/job/:id" element={<JobDetail />} />
+          <Route path="/job/:id/costing" element={<JobCosting />} />
           <Route path="/properties" element={<Properties />} />
           <Route path="/search" element={<Search />} />
           <Route path="/calendar" element={<Calendar />} />
