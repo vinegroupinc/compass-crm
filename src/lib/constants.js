@@ -49,4 +49,4 @@ export const STATUS_COLORS = {
   'Be-Back': '#dc2626',
 }
 
-export const FOLLOWUP_DAYS = 7
+export const FOLLOWUP_DAYS = 45
