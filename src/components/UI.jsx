@@ -1,12 +1,39 @@
 import { STATUS_COLORS } from '../lib/constants'
 
 // Logo. Two flavors:
-//  - 'full' (default): the full logo.png with COMPASS wordmark, for login screen
+//  - 'full' (default): the full logo.jpg with COMPASS wordmark, for login screen
 //  - 'header': the C-only logo for the top bar inside the app
 export function Logo({ variant = 'full', className = '', style = {} }) {
-  const src = variant === 'header' ? '/logo-header.png' : '/logo.png'
-  const alt = variant === 'header' ? 'Compass' : 'Compass — a Vine Group company'
-  return <img src={src} alt={alt} className={`logo ${className}`} style={style} />
+  const isFull = variant !== 'header'
+  const src = isFull ? '/logo.jpg' : '/logo-header.png'
+  const alt = isFull ? 'Compass — a Vine Group company' : 'Compass'
+
+  // Small deterrent against casual right-click-save on the sign-in logo.
+  // Note: this doesn't stop anyone determined (dev tools, screenshots, direct
+  // URL still work) — it just discourages accidental saving.
+  const guardProps = isFull
+    ? {
+        onContextMenu: (e) => e.preventDefault(),
+        onDragStart: (e) => e.preventDefault(),
+        draggable: false,
+        style: {
+          ...style,
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          pointerEvents: 'auto',
+        },
+      }
+    : { style }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={`logo ${className}`}
+      {...guardProps}
+    />
+  )
 }
 
 export function StatusBadge({ status }) {
