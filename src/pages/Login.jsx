@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Logo } from '../components/UI'
+import { AuthFooter } from '../components/AuthFooter'
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -75,6 +76,7 @@ export default function Login() {
           Accounts are managed by <a href="mailto:IT@vinegroupinc.com" style={{ color: 'var(--accent)' }}>IT@vinegroupinc.com</a>
         </p>
       </div>
+      <AuthFooter />
     </div>
   )
 }

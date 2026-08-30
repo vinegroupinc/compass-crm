@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { Logo } from '../components/UI'
+import { AuthFooter } from '../components/AuthFooter'
 
 // This page handles BOTH:
 //   - new user setting password from an invite email
@@ -128,6 +129,7 @@ export default function SetPassword() {
           </>
         )}
       </div>
+      <AuthFooter />
     </div>
   )
 }

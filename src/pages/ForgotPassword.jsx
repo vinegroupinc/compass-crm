@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { Logo } from '../components/UI'
+import { AuthFooter } from '../components/AuthFooter'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -83,6 +84,7 @@ export default function ForgotPassword() {
           </>
         )}
       </div>
+      <AuthFooter />
     </div>
   )
 }
